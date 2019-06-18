@@ -73,6 +73,7 @@ func (c *Conn) Run(down Backend) {
 		if err != nil {
 			log.Printf("Conn, Run, ReadPacket, %d, %s %s", c.connectionId, err.Error(), string(data))
 			c.Close()
+			break
 		}
 
 		if err = c.dispatch(data); err != nil {
@@ -81,12 +82,13 @@ func (c *Conn) Run(down Backend) {
 			if err == mysql.ErrBadConn {
 				down.ReConnect()
 				c.Close()
+				break
 			}
 		}
 
 		if c.shutdown {
 			log.Printf("Conn, Run, %d, %s", c.connectionId, "is going down")
-			return
+			break
 		}
 
 		c.PacketIO.Sequence = 0
