@@ -60,29 +60,6 @@ var DEFAULT_CAPABILITY uint32 = mysql.CLIENT_LONG_PASSWORD | mysql.CLIENT_LONG_F
 
 var baseConnId uint32 = 10000
 
-func (c *ClientConn) IsAllowConnect() bool {
-	clientHost, _, err := net.SplitHostPort(c.c.RemoteAddr().String())
-	if err != nil {
-		fmt.Println(err)
-	}
-	clientIP := net.ParseIP(clientHost)
-
-	current, _, _ := c.proxy.allowipsIndex.Get()
-	ipVec := c.proxy.allowips[current]
-	if ipVecLen := len(ipVec); ipVecLen == 0 {
-		return true
-	}
-	for _, ip := range ipVec {
-		if ip.Match(clientIP) {
-			return true
-		}
-	}
-
-	golog.Error("server", "IsAllowConnect", "error", mysql.ER_ACCESS_DENIED_ERROR,
-		"ip address", c.c.RemoteAddr().String(), " access denied by kindshard.")
-	return false
-}
-
 func (c *ClientConn) Handshake() error {
 	if err := c.writeInitialHandshake(); err != nil {
 		golog.Error("server", "Handshake", err.Error(),

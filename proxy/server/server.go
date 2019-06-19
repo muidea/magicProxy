@@ -1,17 +1,14 @@
 package server
 
 import (
-	"bufio"
 	"fmt"
-	"io"
 	"net"
-	"os"
 	"runtime"
-	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
 
+	"github.com/flike/kingshard/proxy/router"
 	"github.com/muidea/magicProxy/mysql"
 
 	"sync"
@@ -42,16 +39,8 @@ type Server struct {
 	addr  string
 	users map[string]string //user : psw
 
-	statusIndex        int32
-	status             [2]int32
-	logSqlIndex        int32
-	logSql             [2]string
-	slowLogTimeIndex   int32
-	slowLogTime        [2]int
-	blacklistSqlsIndex int32
-	blacklistSqls      [2]*BlacklistSqls
-	allowipsIndex      BoolIndex
-	allowips           [2][]IPInfo
+	statusIndex int32
+	status      [2]int32
 
 	counter *Counter
 	nodes   map[string]*backend.Node
@@ -77,60 +66,6 @@ func (s *Server) Status() string {
 		status = "unknown"
 	}
 	return status
-}
-
-//TODO
-func parseAllowIps(allowIpsStr string) ([]IPInfo, error) {
-	if len(allowIpsStr) == 0 {
-		return make([]IPInfo, 0, 10), nil
-	}
-	ipVec := strings.Split(allowIpsStr, ",")
-	allowIpsList := make([]IPInfo, 0, 10)
-	for _, ipStr := range ipVec {
-		if ip, err := ParseIPInfo(strings.TrimSpace(ipStr)); err == nil {
-			allowIpsList = append(allowIpsList, ip)
-		}
-	}
-	return allowIpsList, nil
-}
-
-//parse the blacklist sql file
-func parseBlackListSqls(blackListFilePath string) (*BlacklistSqls, error) {
-	bs := new(BlacklistSqls)
-	bs.sqls = make(map[string]string)
-	if len(blackListFilePath) != 0 {
-		file, err := os.Open(blackListFilePath)
-		if err != nil {
-			return nil, err
-		}
-
-		defer file.Close()
-		rd := bufio.NewReader(file)
-		for {
-			line, err := rd.ReadString('\n')
-			//end of file
-			if err == io.EOF {
-				if len(line) != 0 {
-					fingerPrint := mysql.GetFingerprint(line)
-					md5 := mysql.GetMd5(fingerPrint)
-					bs.sqls[md5] = fingerPrint
-				}
-				break
-			}
-			if err != nil {
-				return nil, err
-			}
-			line = strings.TrimSpace(line)
-			if len(line) != 0 {
-				fingerPrint := mysql.GetFingerprint(line)
-				md5 := mysql.GetMd5(fingerPrint)
-				bs.sqls[md5] = fingerPrint
-			}
-		}
-	}
-	bs.sqlsLen = len(bs.sqls)
-
-	return bs, nil
 }
 
 func parseNode(cfg config.NodeConfig) (*backend.Node, error) {
@@ -219,10 +154,6 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	}
 	atomic.StoreInt32(&s.statusIndex, 0)
 	s.status[s.statusIndex] = Online
-	atomic.StoreInt32(&s.logSqlIndex, 0)
-	s.logSql[s.logSqlIndex] = cfg.LogSql
-	atomic.StoreInt32(&s.slowLogTimeIndex, 0)
-	s.slowLogTime[s.slowLogTimeIndex] = cfg.SlowLogTime
 	s.configVer = 0
 
 	if len(cfg.Charset) == 0 {
@@ -236,24 +167,6 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	mysql.DEFAULT_CHARSET = cfg.Charset
 	mysql.DEFAULT_COLLATION_ID = cid
 	mysql.DEFAULT_COLLATION_NAME = mysql.Collations[cid]
-
-	//init black sql list
-	if bs, err := parseBlackListSqls(s.cfg.BlsFile); err != nil {
-		return nil, err
-	} else {
-		s.blacklistSqls[0] = bs
-		s.blacklistSqls[1] = bs
-	}
-	atomic.StoreInt32(&s.blacklistSqlsIndex, 0)
-
-	//init allow ip list
-	if allowIps, err := parseAllowIps(s.cfg.AllowIps); err != nil {
-		return nil, err
-	} else {
-		current, another, _ := s.allowipsIndex.Get()
-		s.allowips[current] = allowIps
-		s.allowips[another] = allowIps
-	}
 
 	if nodes, err := parseNodes(s.cfg.Nodes); err != nil {
 		return nil, err
@@ -361,12 +274,6 @@ func (s *Server) onConn(c net.Conn) {
 		s.counter.DecrClientConns()
 	}()
 
-	if allowConnect := conn.IsAllowConnect(); allowConnect == false {
-		err := mysql.NewError(mysql.ER_ACCESS_DENIED_ERROR, "ip address access denied by kingshard.")
-		conn.writeError(err)
-		conn.Close()
-		return
-	}
 	if err := conn.Handshake(); err != nil {
 		golog.Error("server", "onConn", err.Error(), 0)
 		conn.writeError(err)
@@ -404,181 +311,8 @@ func (s *Server) ChangeProxy(v string) error {
 	return nil
 }
 
-func (s *Server) ChangeLogSql(v string) error {
-	v = strings.ToLower(v)
-	if v != golog.LogSqlOn && v != golog.LogSqlOff {
-		return errors.ErrCmdUnsupport
-	}
-	if s.logSqlIndex == 0 {
-		s.logSql[1] = v
-		atomic.StoreInt32(&s.logSqlIndex, 1)
-	} else {
-		s.logSql[0] = v
-		atomic.StoreInt32(&s.logSqlIndex, 0)
-	}
-	s.cfg.LogSql = v
-
-	return nil
-}
-
-func (s *Server) ChangeSlowLogTime(v string) error {
-	tmp, err := strconv.Atoi(v)
-	if err != nil {
-		return err
-	}
-
-	if s.slowLogTimeIndex == 0 {
-		s.slowLogTime[1] = tmp
-		atomic.StoreInt32(&s.slowLogTimeIndex, 1)
-	} else {
-		s.slowLogTime[0] = tmp
-		atomic.StoreInt32(&s.slowLogTimeIndex, 0)
-	}
-	s.cfg.SlowLogTime = tmp
-
-	return err
-}
-
-func (s *Server) AddAllowIP(v string) error {
-	ip, err := ParseIPInfo(v)
-	if err != nil {
-		return err
-	}
-
-	current, another, index := s.allowipsIndex.Get()
-
-	for _, oldIp := range s.allowips[current] {
-		if ip.Info() == oldIp.Info() {
-			return nil
-		}
-	}
-	s.allowips[another] = s.allowips[current]
-	s.allowips[another] = append(s.allowips[another], ip)
-	s.allowipsIndex.Set(!index)
-
-	if s.cfg.AllowIps == "" {
-		s.cfg.AllowIps = strings.Join([]string{s.cfg.AllowIps, v}, "")
-	} else {
-		s.cfg.AllowIps = strings.Join([]string{s.cfg.AllowIps, v}, ",")
-	}
-
-	return nil
-}
-
-func (s *Server) DelAllowIP(v string) error {
-	current, another, index := s.allowipsIndex.Get()
-	s.allowips[another] = s.allowips[current]
-	ipVec2 := strings.Split(s.cfg.AllowIps, ",")
-	for i, ipInfo := range s.allowips[another] {
-		if v == ipInfo.Info() {
-			s.allowips[another] = append(s.allowips[another][:i], s.allowips[another][i+1:]...)
-			s.allowipsIndex.Set(!index)
-			for i, ip := range ipVec2 {
-				if ip == v {
-					ipVec2 = append(ipVec2[:i], ipVec2[i+1:]...)
-					s.cfg.AllowIps = strings.Trim(strings.Join(ipVec2, ","), ",")
-					return nil
-				}
-			}
-			return nil
-		}
-	}
-
-	return nil
-}
-
-func (s *Server) GetAllBlackSqls() []string {
-	blackSQLs := make([]string, 0, 10)
-	for _, SQL := range s.blacklistSqls[s.blacklistSqlsIndex].sqls {
-		blackSQLs = append(blackSQLs, SQL)
-	}
-	return blackSQLs
-}
-
-func (s *Server) AddBlackSql(v string) error {
-	v = strings.TrimSpace(v)
-	fingerPrint := mysql.GetFingerprint(v)
-	md5 := mysql.GetMd5(fingerPrint)
-	if s.blacklistSqlsIndex == 0 {
-		if _, ok := s.blacklistSqls[0].sqls[md5]; ok {
-			return errors.ErrBlackSqlExist
-		}
-		s.blacklistSqls[1] = s.blacklistSqls[0]
-		s.blacklistSqls[1].sqls[md5] = v
-		s.blacklistSqls[1].sqlsLen += 1
-		atomic.StoreInt32(&s.blacklistSqlsIndex, 1)
-	} else {
-		if _, ok := s.blacklistSqls[1].sqls[md5]; ok {
-			return errors.ErrBlackSqlExist
-		}
-		s.blacklistSqls[0] = s.blacklistSqls[1]
-		s.blacklistSqls[0].sqls[md5] = v
-		s.blacklistSqls[0].sqlsLen += 1
-		atomic.StoreInt32(&s.blacklistSqlsIndex, 0)
-	}
-
-	return nil
-}
-
-func (s *Server) DelBlackSql(v string) error {
-	v = strings.TrimSpace(v)
-	fingerPrint := mysql.GetFingerprint(v)
-	md5 := mysql.GetMd5(fingerPrint)
-
-	if s.blacklistSqlsIndex == 0 {
-		if _, ok := s.blacklistSqls[0].sqls[md5]; !ok {
-			return errors.ErrBlackSqlNotExist
-		}
-		s.blacklistSqls[1] = s.blacklistSqls[0]
-		s.blacklistSqls[1].sqls[md5] = v
-		delete(s.blacklistSqls[1].sqls, md5)
-		s.blacklistSqls[1].sqlsLen -= 1
-		atomic.StoreInt32(&s.blacklistSqlsIndex, 1)
-	} else {
-		if _, ok := s.blacklistSqls[1].sqls[md5]; !ok {
-			return errors.ErrBlackSqlNotExist
-		}
-		s.blacklistSqls[0] = s.blacklistSqls[1]
-		s.blacklistSqls[0].sqls[md5] = v
-		delete(s.blacklistSqls[0].sqls, md5)
-		s.blacklistSqls[0].sqlsLen -= 1
-		atomic.StoreInt32(&s.blacklistSqlsIndex, 0)
-	}
-
-	return nil
-}
-
-func (s *Server) saveBlackSql() error {
-	if len(s.cfg.BlsFile) == 0 {
-		return nil
-	}
-	f, err := os.Create(s.cfg.BlsFile)
-	if err != nil {
-		golog.Error("Server", "saveBlackSql", "create file error", 0,
-			"err", err.Error(),
-			"blacklist_sql_file", s.cfg.BlsFile,
-		)
-		return err
-	}
-
-	for _, v := range s.blacklistSqls[s.blacklistSqlsIndex].sqls {
-		v = v + "\n"
-		_, err = f.WriteString(v)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (s *Server) SaveProxyConfig() error {
 	err := config.WriteConfigFile(s.cfg)
-	if err != nil {
-		return err
-	}
-
-	err = s.saveBlackSql()
 	if err != nil {
 		return err
 	}
@@ -709,10 +443,6 @@ func (s *Server) GetSchema(user string) *Schema {
 	return s.schemas[user]
 }
 
-func (s *Server) GetSlowLogTime() int {
-	return s.slowLogTime[s.slowLogTimeIndex]
-}
-
 func (s *Server) GetAllowIps() []string {
 	var ips []string
 	current, _, _ := s.allowipsIndex.Get()
@@ -739,18 +469,6 @@ func (s *Server) UpdateConfig(newCfg *config.Config) {
 		}
 		golog.Info("Server", "UpdateConfig", "config reload end", 0)
 	}()
-
-	newBlackList, err := parseBlackListSqls(newCfg.BlsFile)
-	if nil != err {
-		golog.Error("Server", "UpdateConfig", err.Error(), 0)
-		return
-	}
-
-	newAllowIps, err := parseAllowIps(newCfg.AllowIps)
-	if nil != err {
-		golog.Error("Server", "UpdateConfig", err.Error(), 0)
-		return
-	}
 
 	//parse new nodes
 	nodes, err := parseNodes(newCfg.Nodes)
@@ -784,19 +502,6 @@ func (s *Server) UpdateConfig(newCfg *config.Config) {
 	//reset cfg
 	s.cfg = newCfg
 
-	if 0 == s.blacklistSqlsIndex {
-		s.blacklistSqls[1] = newBlackList
-		atomic.StoreInt32(&s.blacklistSqlsIndex, 1)
-
-	} else {
-		s.blacklistSqls[0] = newBlackList
-		atomic.StoreInt32(&s.blacklistSqlsIndex, 0)
-	}
-
-	_, another, index := s.allowipsIndex.Get()
-	s.allowips[another] = newAllowIps
-	s.allowipsIndex.Set(!index)
-
 	s.users = newUserList
 
 	switch strings.ToLower(newCfg.LogLevel) {
@@ -825,41 +530,4 @@ func (s *Server) UpdateConfig(newCfg *config.Config) {
 
 	//version update
 	s.configVer += 1
-}
-
-func (s *Server) GetMonitorData() map[string]map[string]string {
-	data := make(map[string]map[string]string)
-
-	// get all node's monitor data
-	for _, node := range s.nodes {
-		//get master monitor data
-		dbData := make(map[string]string)
-		idleConns, cacheConns, pushConnCount, popConnCount := node.Master.ConnCount()
-
-		dbData["idleConn"] = strconv.Itoa(idleConns)
-		dbData["cacheConns"] = strconv.Itoa(cacheConns)
-		dbData["pushConnCount"] = strconv.FormatInt(pushConnCount, 10)
-		dbData["popConnCount"] = strconv.FormatInt(popConnCount, 10)
-		dbData["maxConn"] = fmt.Sprintf("%d", node.Cfg.MaxConnNum)
-		dbData["type"] = "master"
-
-		data[node.Master.Addr()] = dbData
-
-		//get all slave monitor data
-		for _, slaveNode := range node.Slave {
-			slaveDbData := make(map[string]string)
-			idleConns, cacheConns, pushConnCount, popConnCount := slaveNode.ConnCount()
-
-			slaveDbData["idleConn"] = strconv.Itoa(idleConns)
-			slaveDbData["cacheConns"] = strconv.Itoa(cacheConns)
-			slaveDbData["pushConnCount"] = strconv.FormatInt(pushConnCount, 10)
-			slaveDbData["popConnCount"] = strconv.FormatInt(popConnCount, 10)
-			slaveDbData["maxConn"] = fmt.Sprintf("%d", node.Cfg.MaxConnNum)
-			slaveDbData["type"] = "slave"
-
-			data[slaveNode.Addr()] = slaveDbData
-		}
-	}
-
-	return data
 }

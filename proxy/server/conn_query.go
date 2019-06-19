@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/flike/kingshard/proxy/router"
 	"github.com/muidea/magicProxy/backend"
 	"github.com/muidea/magicProxy/core/errors"
 	"github.com/muidea/magicProxy/core/golog"
@@ -37,22 +38,11 @@ func (c *ClientConn) handleQuery(sql string) (err error) {
 	}()
 
 	sql = strings.TrimRight(sql, ";") //删除sql语句最后的分号
-	hasHandled, err := c.preHandleShard(sql)
-	if err != nil {
-		golog.Error("server", "preHandleShard", err.Error(), 0,
-			"sql", sql,
-			"hasHandled", hasHandled,
-		)
-		return err
-	}
-	if hasHandled {
-		return nil
-	}
 
 	var stmt sqlparser.Statement
 	stmt, err = sqlparser.Parse(sql) //解析sql语句,得到的stmt是一个interface
 	if err != nil {
-		golog.Error("server", "parse", err.Error(), 0, "hasHandled", hasHandled, "sql", sql)
+		golog.Error("server", "parse", err.Error(), 0, "sql", sql)
 		return err
 	}
 
@@ -75,16 +65,6 @@ func (c *ClientConn) handleQuery(sql string) (err error) {
 		return c.handleCommit()
 	case *sqlparser.Rollback:
 		return c.handleRollback()
-	case *sqlparser.Admin:
-		if c.user == "root" {
-			return c.handleAdmin(v)
-		}
-		return fmt.Errorf("statement %T not support now", stmt)
-	case *sqlparser.AdminHelp:
-		if c.user == "root" {
-			return c.handleAdminHelp(v)
-		}
-		return fmt.Errorf("statement %T not support now", stmt)
 	case *sqlparser.UseDB:
 		return c.handleUseDB(v.DB)
 	case *sqlparser.SimpleSelect:

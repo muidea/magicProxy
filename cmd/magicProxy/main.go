@@ -1,4 +1,4 @@
-// Copyright 2016 The kingshard Authors. All rights reserved.
+// Copyright 2016 The magicProxy Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"): you may
 // not use this file except in compliance with the License. You may obtain
@@ -26,14 +26,12 @@ import (
 
 	"github.com/muidea/magicProxy/config"
 	"github.com/muidea/magicProxy/core/golog"
-	"github.com/muidea/magicProxy/monitor"
 	"github.com/muidea/magicProxy/proxy/server"
-	"github.com/muidea/magicProxy/web"
 )
 
-var configFile *string = flag.String("config", "/etc/ks.yaml", "kingshard config file")
+var configFile *string = flag.String("config", "/etc/ks.yaml", "magicProxy config file")
 var logLevel *string = flag.String("log-level", "", "log level [debug|info|warn|error], default error")
-var version *bool = flag.Bool("v", false, "the version of kingshard")
+var version *bool = flag.Bool("v", false, "the version of magicProxy")
 
 const (
 	sqlLogName = "sql.log"
@@ -75,7 +73,7 @@ func main() {
 		return
 	}
 
-	//when the log file size greater than 1GB, kingshard will generate a new file
+	//when the log file size greater than 1GB, magicProxy will generate a new file
 	if len(cfg.LogPath) != 0 {
 		sysFilePath := path.Join(cfg.LogPath, sysLogName)
 		sysFile, err := golog.NewRotatingFileHandler(sysFilePath, MaxLogSize, 1)
@@ -101,29 +99,11 @@ func main() {
 	}
 
 	var svr *server.Server
-	var apiSvr *web.ApiServer
-	var prometheusSvr *monitor.Prometheus
 	svr, err = server.NewServer(cfg)
 	if err != nil {
 		golog.Error("main", "main", err.Error(), 0)
 		golog.GlobalSysLogger.Close()
 		golog.GlobalSqlLogger.Close()
-		return
-	}
-	apiSvr, err = web.NewApiServer(cfg, svr)
-	if err != nil {
-		golog.Error("main", "main", err.Error(), 0)
-		golog.GlobalSysLogger.Close()
-		golog.GlobalSqlLogger.Close()
-		svr.Close()
-		return
-	}
-	prometheusSvr, err = monitor.NewPrometheus(cfg.PrometheusAddr, svr)
-	if err != nil {
-		golog.Error("main", "main", err.Error(), 0)
-		golog.GlobalSysLogger.Close()
-		golog.GlobalSqlLogger.Close()
-		svr.Close()
 		return
 	}
 
@@ -157,8 +137,6 @@ func main() {
 			}
 		}
 	}()
-	go apiSvr.Run()
-	go prometheusSvr.Run()
 	svr.Run()
 }
 

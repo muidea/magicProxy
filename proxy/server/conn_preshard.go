@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/flike/magicProxy/proxy/router"
 	"github.com/muidea/magicProxy/backend"
 	"github.com/muidea/magicProxy/core/errors"
 	"github.com/muidea/magicProxy/core/golog"
@@ -18,15 +19,6 @@ type ExecuteDB struct {
 	sql      string
 }
 
-func (c *ClientConn) isBlacklistSql(sql string) bool {
-	fingerprint := mysql.GetFingerprint(sql)
-	md5 := mysql.GetMd5(fingerprint)
-	if _, ok := c.proxy.blacklistSqls[c.proxy.blacklistSqlsIndex].sqls[md5]; ok {
-		return true
-	}
-	return false
-}
-
 //preprocessing sql before parse sql
 func (c *ClientConn) preHandleShard(sql string) (bool, error) {
 	var rs []*mysql.Result
@@ -35,18 +27,6 @@ func (c *ClientConn) preHandleShard(sql string) (bool, error) {
 
 	if len(sql) == 0 {
 		return false, errors.ErrCmdUnsupport
-	}
-	//filter the blacklist sql
-	if c.proxy.blacklistSqls[c.proxy.blacklistSqlsIndex].sqlsLen != 0 {
-		if c.isBlacklistSql(sql) {
-			golog.OutputSql("Forbidden", "%s->%s:%s",
-				c.c.RemoteAddr(),
-				c.proxy.addr,
-				sql,
-			)
-			err := mysql.NewError(mysql.ER_UNKNOWN_ERROR, "sql in blacklist.")
-			return false, err
-		}
 	}
 
 	tokens := strings.FieldsFunc(sql, hack.IsSqlSep)
@@ -221,7 +201,7 @@ func (c *ClientConn) getSelectExecDB(sql string, tokens []string, tokensLen int)
 			if strings.ToLower(tokens[i]) == mysql.TK_STR_FROM {
 				if i+1 < tokensLen {
 					DBName, tableName := sqlparser.GetDBTable(tokens[i+1])
-					//if the token[i+1] like this:kingshard.test_shard_hash
+					//if the token[i+1] like this:magicProxy.test_shard_hash
 					if DBName != "" {
 						ruleDB = DBName
 					} else {
@@ -270,7 +250,7 @@ func (c *ClientConn) getDeleteExecDB(sql string, tokens []string, tokensLen int)
 			if strings.ToLower(tokens[i]) == mysql.TK_STR_FROM {
 				if i+1 < tokensLen {
 					DBName, tableName := sqlparser.GetDBTable(tokens[i+1])
-					//if the token[i+1] like this:kingshard.test_shard_hash
+					//if the token[i+1] like this:magicProxy.test_shard_hash
 					if DBName != "" {
 						ruleDB = DBName
 					} else {
@@ -308,7 +288,7 @@ func (c *ClientConn) getInsertOrReplaceExecDB(sql string, tokens []string, token
 			if strings.ToLower(tokens[i]) == mysql.TK_STR_INTO {
 				if i+1 < tokensLen {
 					DBName, tableName := sqlparser.GetInsertDBTable(tokens[i+1])
-					//if the token[i+1] like this:kingshard.test_shard_hash
+					//if the token[i+1] like this:magicProxy.test_shard_hash
 					if DBName != "" {
 						ruleDB = DBName
 					} else {
@@ -345,7 +325,7 @@ func (c *ClientConn) getUpdateExecDB(sql string, tokens []string, tokensLen int)
 		for i := 0; i < tokensLen; i++ {
 			if strings.ToLower(tokens[i]) == mysql.TK_STR_SET {
 				DBName, tableName := sqlparser.GetDBTable(tokens[i-1])
-				//if the token[i+1] like this:kingshard.test_shard_hash
+				//if the token[i+1] like this:magicProxy.test_shard_hash
 				if DBName != "" {
 					ruleDB = DBName
 				} else {
@@ -476,7 +456,7 @@ func (c *ClientConn) getTruncateExecDB(sql string, tokens []string, tokensLen in
 	rules := router.Rules
 	if len(rules) != 0 && tokensLen >= 2 {
 		DBName, tableName := sqlparser.GetDBTable(tokens[tokensLen-1])
-		//if the token[i+1] like this:kingshard.test_shard_hash
+		//if the token[i+1] like this:magicProxy.test_shard_hash
 		if DBName != "" {
 			ruleDB = DBName
 		} else {

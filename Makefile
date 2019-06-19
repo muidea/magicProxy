@@ -3,13 +3,13 @@ BUILD_DATE=$(shell date '+%Y-%m-%d %H:%M:%S')
 
 all: build
 
-build: kingshard
+build: magicProxy
 goyacc:
 	go build -o ./bin/goyacc ./vendor/golang.org/x/tools/cmd/goyacc
-kingshard: goyacc
+magicProxy: goyacc
 	./bin/goyacc -o ./sqlparser/sql.go ./sqlparser/sql.y
 	gofmt -w ./sqlparser/sql.go
-	go build -ldflags "-X \"main.BuildVersion=${COMMIT_HASH}\" -X \"main.BuildDate=$(BUILD_DATE)\"" -o ./bin/kingshard ./cmd/kingshard
+	go build -ldflags "-X \"main.BuildVersion=${COMMIT_HASH}\" -X \"main.BuildDate=$(BUILD_DATE)\"" -o ./bin/magicProxy ./cmd/magicProxy
 clean:
 	@rm -rf bin
 	@rm -f ./sqlparser/y.output ./sqlparser/sql.go
