@@ -8,8 +8,8 @@ import (
 	"runtime"
 	"sync"
 	"sync/atomic"
-	"time"
 
+	"github.com/muidea/magicCommon/foundation/cache"
 	"github.com/muidea/magicProxy/common/sql-parser/mysql"
 )
 
@@ -17,52 +17,23 @@ var session = uint32(0)
 
 // Server struct
 type Server struct {
-	join                *sync.WaitGroup
-	listenPort, authURL string
+	join       *sync.WaitGroup
+	listenPort string
+	config     *Config
+	listener   net.Listener
+	running    bool
 
-	pool     chan Backend // mysql connections
-	listener net.Listener
-	running  bool
+	backendRegistry *Registry
+	connCache       cache.KVCache
 }
 
-func (p *Server) getMySQL() (m Backend) {
-	m = <-p.pool
-	return
-}
+func (p *Server) getBackend(cfg *Config) Backend {
+	backend, err := p.backendRegistry.FetchOut()
+	if err != nil {
+		return nil
+	}
 
-func (p *Server) retMySQL(m Backend) {
-	if !p.running {
-		m.Close()
-		return
-	}
-	select {
-	case p.pool <- m:
-	default:
-		m.Close()
-	}
-}
-
-// KeepAlive keep alive
-func (p *Server) KeepAlive() {
-	var err error
-	for p.running {
-		time.Sleep(1 * time.Second)
-		select {
-		case cli, o := <-p.pool:
-			if !o {
-				if cli != nil {
-					cli.Close()
-					p.join.Done()
-				}
-				return
-			}
-			err = cli.Ping()
-			p.pool <- cli
-			if err != nil {
-				log.Printf("Server, KeepAlive, %s", err.Error())
-			}
-		}
-	}
+	return backend
 }
 
 // Close func
@@ -72,30 +43,19 @@ func (p *Server) Close() {
 		p.listener.Close()
 	}
 
-	for {
-		final := false
-		select {
-		case b, o := <-p.pool:
-			if b == nil && o == false {
-				log.Printf("backend conn close")
-				final = true
-				break
-			}
-			b.Close()
-			p.join.Done()
-		}
+	p.backendRegistry.Close()
+	p.backendRegistry = nil
 
-		if final {
-			break
+	keys := p.connCache.GetAll()
+	for _, v := range keys {
+		val, ok := p.connCache.Fetch(v)
+		if ok {
+			val.(*Conn).Close()
 		}
 	}
 
-	close(p.pool)
-}
-
-// Auth func
-func (p *Server) Auth(appid string, secret []byte) (bool, error) {
-	return true, nil
+	p.connCache.Release()
+	p.connCache = nil
 }
 
 // NewServer func
@@ -103,22 +63,16 @@ func NewServer(cfg *Config, join *sync.WaitGroup) (p *Server) {
 	p = new(Server)
 	p.join = join
 	p.listenPort = cfg.ListenPort
-	p.pool = make(chan Backend, cfg.MySQLPoolSize)
-	for i := cfg.MySQLPoolSize; i > 0; i-- {
-		co := new(backConn)
-		if err := co.Connect(cfg.MySQLURI, cfg.MySQLUser, cfg.MySQLPswd); err != nil {
-			log.Printf("NewServer, %s", err.Error())
-			co.Close()
-			continue
-		}
-		p.pool <- co
-		join.Add(1)
-	}
+	p.config = cfg
+	p.connCache = cache.NewKVCache()
+	p.backendRegistry = NewRegistry(cfg, join)
 
 	var err error
-	if p.listener, err = net.Listen("tcp", cfg.ListenPort); err != nil {
+	p.listener, err = net.Listen("tcp", cfg.ListenPort)
+	if err != nil {
 		panic(fmt.Errorf("listen %s failed %s", cfg.ListenPort, err))
 	}
+
 	return
 }
 
@@ -127,7 +81,6 @@ func (p *Server) Run() error {
 	p.join.Add(1)
 	defer p.join.Done()
 	p.running = true
-	go p.KeepAlive()
 	for p.running {
 		conn, err := p.listener.Accept()
 		if err != nil {
@@ -164,6 +117,8 @@ func (p *Server) warpConn(c net.Conn) (conn *Conn) {
 	conn.salt, _ = mysql.RandomBuf(20)
 	conn.PacketIO = mysql.NewPacketIO(conn.raw)
 	conn.PacketIO.Sequence = 0
+
+	conn.connCache = p.connCache
 	return
 }
 
@@ -180,16 +135,25 @@ func (p *Server) onConn(c net.Conn) {
 		conn.Close()
 		return
 	}()
-	p.join.Add(1)
-	defer p.join.Done()
-	m := p.getMySQL()
-	defer p.retMySQL(m)
-	if err := conn.Handshake(); err != nil {
-		log.Printf("Server, onConn, %s", err.Error())
-		conn.writeErr(err)
-		conn.Close()
+
+	backend := p.getBackend(p.config)
+	if backend == nil {
+		log.Printf("create new connect failed.")
 		return
 	}
 
-	conn.Run(m)
+	p.join.Add(1)
+	defer p.join.Done()
+
+	if err := conn.Handshake(); err != nil {
+		log.Printf("Server, onConn failed, %s", err.Error())
+		conn.writeErr(err)
+		conn.Close()
+		backend.Close()
+		backend = nil
+
+		return
+	}
+
+	conn.Run(backend)
 }

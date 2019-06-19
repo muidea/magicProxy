@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strconv"
 
+	"github.com/muidea/magicCommon/foundation/cache"
 	"github.com/muidea/magicProxy/common/errors"
 	"github.com/muidea/magicProxy/common/sql-parser/mysql"
 )
@@ -44,6 +45,8 @@ type Conn struct {
 
 	shutdown bool
 	curDB    string
+
+	connCache cache.KVCache
 }
 
 // Close close conn
@@ -70,6 +73,10 @@ func (c *Conn) Run(down Backend) {
 		}
 		c.Close()
 	}()
+
+	remoteAddr := c.raw.RemoteAddr().String()
+	c.connCache.Put(remoteAddr, c, cache.MaxAgeValue)
+	defer c.connCache.Remove(remoteAddr)
 
 	for {
 		data, err := c.ReadPacket()
