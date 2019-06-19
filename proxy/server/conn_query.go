@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/flike/kingshard/proxy/router"
 	"github.com/muidea/magicProxy/backend"
 	"github.com/muidea/magicProxy/core/errors"
 	"github.com/muidea/magicProxy/core/golog"
@@ -173,17 +172,6 @@ func (c *ClientConn) executeInNode(conn *backend.BackendConn, sql string, args [
 	} else {
 		state = "OK"
 	}
-	execTime := float64(time.Now().UnixNano()-startTime) / float64(time.Millisecond)
-	if strings.ToLower(c.proxy.logSql[c.proxy.logSqlIndex]) != golog.LogSqlOff &&
-		execTime > float64(c.proxy.slowLogTime[c.proxy.slowLogTimeIndex]) {
-		c.proxy.counter.IncrSlowLogTotal()
-		golog.OutputSql(state, "%.1fms - %s->%s:%s",
-			execTime,
-			c.c.RemoteAddr(),
-			conn.GetAddr(),
-			sql,
-		)
-	}
 
 	if err != nil {
 		return nil, err
@@ -227,17 +215,6 @@ func (c *ClientConn) executeInMultiNodes(conns map[string]*backend.BackendConn, 
 			} else {
 				state = "OK"
 				rs[i] = r
-			}
-			execTime := float64(time.Now().UnixNano()-startTime) / float64(time.Millisecond)
-			if c.proxy.logSql[c.proxy.logSqlIndex] != golog.LogSqlOff &&
-				execTime > float64(c.proxy.slowLogTime[c.proxy.slowLogTimeIndex]) {
-				c.proxy.counter.IncrSlowLogTotal()
-				golog.OutputSql(state, "%.1fms - %s->%s:%s",
-					execTime,
-					c.c.RemoteAddr(),
-					co.GetAddr(),
-					v,
-				)
 			}
 			i++
 		}

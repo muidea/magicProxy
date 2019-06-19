@@ -251,21 +251,6 @@ func (c *ClientConn) Run() {
 			return
 		}
 
-		if c.configVer != c.proxy.configVer {
-			err := c.reloadConfig()
-			if nil != err {
-				golog.Error("ClientConn", "Run",
-					err.Error(), c.connectionId,
-				)
-				c.writeError(err)
-				return
-			}
-			c.configVer = c.proxy.configVer
-			golog.Debug("ClientConn", "Run",
-				fmt.Sprintf("config reload ok, ver:%d", c.configVer), c.connectionId,
-			)
-		}
-
 		if err := c.dispatch(data); err != nil {
 			c.proxy.counter.IncrErrLogTotal()
 			golog.Error("ClientConn", "Run",
@@ -387,16 +372,4 @@ func (c *ClientConn) writeEOFBatch(total []byte, status uint16, direct bool) ([]
 	}
 
 	return c.writePacketBatch(total, data, direct)
-}
-
-func (c *ClientConn) reloadConfig() error {
-	c.proxy.configUpdateMutex.RLock()
-	defer c.proxy.configUpdateMutex.RUnlock()
-	c.schema = c.proxy.GetSchema(c.user)
-	if nil == c.schema {
-		return fmt.Errorf("schema of user [%s] is null or user is deleted", c.user)
-	}
-	c.nodes = c.proxy.nodes
-
-	return nil
 }

@@ -11,8 +11,6 @@ import (
 	"github.com/flike/kingshard/proxy/router"
 	"github.com/muidea/magicProxy/mysql"
 
-	"sync"
-
 	"github.com/muidea/magicProxy/backend"
 	"github.com/muidea/magicProxy/config"
 	"github.com/muidea/magicProxy/core/errors"
@@ -21,11 +19,6 @@ import (
 
 type Schema struct {
 	nodes map[string]*backend.Node
-}
-
-type BlacklistSqls struct {
-	sqls    map[string]string
-	sqlsLen int
 }
 
 const (
@@ -48,9 +41,6 @@ type Server struct {
 
 	listener net.Listener
 	running  bool
-
-	configUpdateMutex sync.RWMutex
-	configVer         uint32
 }
 
 func (s *Server) Status() string {
@@ -311,15 +301,6 @@ func (s *Server) ChangeProxy(v string) error {
 	return nil
 }
 
-func (s *Server) SaveProxyConfig() error {
-	err := config.WriteConfigFile(s.cfg)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (s *Server) Run() error {
 	s.running = true
 
@@ -441,93 +422,4 @@ func (s *Server) GetAllNodes() map[string]*backend.Node {
 
 func (s *Server) GetSchema(user string) *Schema {
 	return s.schemas[user]
-}
-
-func (s *Server) GetAllowIps() []string {
-	var ips []string
-	current, _, _ := s.allowipsIndex.Get()
-	for _, v := range s.allowips[current] {
-		if v.Info() != "" {
-			ips = append(ips, v.Info())
-		}
-	}
-	return ips
-}
-
-func (s *Server) UpdateConfig(newCfg *config.Config) {
-	golog.Info("Server", "UpdateConfig", "config reload begin", 0)
-	defer func() {
-		r := recover()
-		if err, ok := r.(error); ok {
-			const size = 4096
-			buf := make([]byte, size)
-			buf = buf[:runtime.Stack(buf, false)]
-
-			golog.Error("Server", "UpdateConfig",
-				err.Error(), 0,
-				"stack", string(buf))
-		}
-		golog.Info("Server", "UpdateConfig", "config reload end", 0)
-	}()
-
-	//parse new nodes
-	nodes, err := parseNodes(newCfg.Nodes)
-	if nil != err {
-		golog.Error("Server", "UpdateConfig", err.Error(), 0)
-		return
-	}
-	//parse new schemas
-	newSchemas, err := parseSchemaList(newCfg.SchemaList, nodes)
-	if nil != err {
-		golog.Error("Server", "UpdateConfig", err.Error(), 0)
-		return
-	}
-
-	newUserList := make(map[string]string)
-	for _, user := range newCfg.UserList {
-		newUserList[user.User] = user.Password
-	}
-
-	for user, _ := range newUserList {
-		if _, exist := newSchemas[user]; !exist {
-			golog.Error("Server", "UpdateConfig", fmt.Sprintf("user [%s] must have a schema", user), 0)
-			return
-		}
-	}
-
-	//lock stop new conn from clients
-	s.configUpdateMutex.Lock()
-	defer s.configUpdateMutex.Unlock()
-
-	//reset cfg
-	s.cfg = newCfg
-
-	s.users = newUserList
-
-	switch strings.ToLower(newCfg.LogLevel) {
-	case "debug":
-		golog.GlobalSysLogger.SetLevel(golog.LevelDebug)
-	case "info":
-		golog.GlobalSysLogger.SetLevel(golog.LevelInfo)
-	case "warn":
-		golog.GlobalSysLogger.SetLevel(golog.LevelWarn)
-	case "error":
-		golog.GlobalSysLogger.SetLevel(golog.LevelError)
-	default:
-		golog.GlobalSysLogger.SetLevel(golog.LevelError)
-	}
-
-	s.ChangeSlowLogTime(fmt.Sprintf("%d", newCfg.SlowLogTime))
-
-	//reset nodes: old nodes offline (stop check thread)
-	for _, n := range s.nodes {
-		n.Online = false
-	}
-	s.nodes = nodes
-
-	//reset schema
-	s.schemas = newSchemas
-
-	//version update
-	s.configVer += 1
 }

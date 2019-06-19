@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/flike/magicProxy/proxy/router"
 	"github.com/muidea/magicProxy/backend"
 	"github.com/muidea/magicProxy/core/errors"
 	"github.com/muidea/magicProxy/core/golog"
