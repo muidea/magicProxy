@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/flike/kingshard/sqltypes"
+	"github.com/muidea/magicProxy/sqltypes"
 )
 
 const EOFCHAR = 0x100

@@ -1,17 +1,3 @@
-// Copyright 2016 The kingshard Authors. All rights reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License"): you may
-// not use this file except in compliance with the License. You may obtain
-// a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-// License for the specific language governing permissions and limitations
-// under the License.
-
 package backend
 
 import (
@@ -19,8 +5,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/flike/kingshard/core/errors"
-	"github.com/flike/kingshard/mysql"
+	"github.com/muidea/magicProxy/core/errors"
+	"github.com/muidea/magicProxy/mysql"
 )
 
 const (
@@ -50,8 +36,8 @@ type DB struct {
 	checkConn   *Conn
 	lastPing    int64
 
-	pushConnCount    int64
-	popConnCount     int64
+	pushConnCount int64
+	popConnCount  int64
 }
 
 func Open(addr string, user string, password string, dbName string, maxConnNum int) (*DB, error) {
@@ -109,8 +95,8 @@ func Open(addr string, user string, password string, dbName string, maxConnNum i
 func (db *DB) newCheckConn(conn *Conn) {
 	go func() {
 		select {
-		case <- conn.checkChannel:
-		case <- time.After(time.Second * 60 * 5):
+		case <-conn.checkChannel:
+		case <-time.After(time.Second * 60 * 5):
 			conn := new(Conn)
 			db.idleConns <- conn
 			atomic.AddInt64(&db.pushConnCount, 1)
@@ -136,10 +122,10 @@ func (db *DB) State() string {
 	return state
 }
 
-func (db *DB) ConnCount() (int,int,int64,int64) {
+func (db *DB) ConnCount() (int, int, int64, int64) {
 	db.RLock()
 	defer db.RUnlock()
-	return len(db.idleConns),len(db.cacheConns),db.pushConnCount,db.popConnCount
+	return len(db.idleConns), len(db.cacheConns), db.pushConnCount, db.popConnCount
 }
 
 func (db *DB) Close() error {
@@ -198,7 +184,7 @@ func (db *DB) Ping() error {
 	}
 	err = db.checkConn.Ping()
 	if err != nil {
-		if db.checkConn != nil{
+		if db.checkConn != nil {
 			db.checkConn.Close()
 			db.checkConn = nil
 		}
@@ -244,7 +230,7 @@ func (db *DB) tryReuse(co *Conn) error {
 	if err != nil {
 		db.closeConn(co)
 		co, err = db.newConn()
-	
+
 		if err != nil {
 			db.Close()
 			return err
@@ -369,7 +355,7 @@ func (db *DB) PushConn(co *Conn, err error) {
 	co.pushTimestamp = time.Now().Unix()
 	select {
 	case conns <- co:
-		co.checkChannel <- co.pushTimestamp 
+		co.checkChannel <- co.pushTimestamp
 		atomic.AddInt64(&db.pushConnCount, 1)
 		return
 	default:

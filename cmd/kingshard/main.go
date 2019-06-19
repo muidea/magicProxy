@@ -24,11 +24,11 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/flike/kingshard/config"
-	"github.com/flike/kingshard/core/golog"
-	"github.com/flike/kingshard/monitor"
-	"github.com/flike/kingshard/proxy/server"
-	"github.com/flike/kingshard/web"
+	"github.com/muidea/magicProxy/config"
+	"github.com/muidea/magicProxy/core/golog"
+	"github.com/muidea/magicProxy/monitor"
+	"github.com/muidea/magicProxy/proxy/server"
+	"github.com/muidea/magicProxy/web"
 )
 
 var configFile *string = flag.String("config", "/etc/ks.yaml", "kingshard config file")

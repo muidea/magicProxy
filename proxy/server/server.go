@@ -1,17 +1,3 @@
-// Copyright 2016 The kingshard Authors. All rights reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License"): you may
-// not use this file except in compliance with the License. You may obtain
-// a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-// License for the specific language governing permissions and limitations
-// under the License.
-
 package server
 
 import (
@@ -26,19 +12,18 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/flike/kingshard/mysql"
+	"github.com/muidea/magicProxy/mysql"
 
-	"github.com/flike/kingshard/backend"
-	"github.com/flike/kingshard/config"
-	"github.com/flike/kingshard/core/errors"
-	"github.com/flike/kingshard/core/golog"
-	"github.com/flike/kingshard/proxy/router"
 	"sync"
+
+	"github.com/muidea/magicProxy/backend"
+	"github.com/muidea/magicProxy/config"
+	"github.com/muidea/magicProxy/core/errors"
+	"github.com/muidea/magicProxy/core/golog"
 )
 
 type Schema struct {
 	nodes map[string]*backend.Node
-	rule  *router.Router
 }
 
 type BlacklistSqls struct {
@@ -842,35 +827,35 @@ func (s *Server) UpdateConfig(newCfg *config.Config) {
 	s.configVer += 1
 }
 
-func (s *Server) GetMonitorData() map[string]map[string]string{
+func (s *Server) GetMonitorData() map[string]map[string]string {
 	data := make(map[string]map[string]string)
 
 	// get all node's monitor data
 	for _, node := range s.nodes {
 		//get master monitor data
 		dbData := make(map[string]string)
-		idleConns,cacheConns,pushConnCount,popConnCount := node.Master.ConnCount()
+		idleConns, cacheConns, pushConnCount, popConnCount := node.Master.ConnCount()
 
-		dbData["idleConn"] 		= strconv.Itoa(idleConns)
-		dbData["cacheConns"] 	= strconv.Itoa(cacheConns)
+		dbData["idleConn"] = strconv.Itoa(idleConns)
+		dbData["cacheConns"] = strconv.Itoa(cacheConns)
 		dbData["pushConnCount"] = strconv.FormatInt(pushConnCount, 10)
-		dbData["popConnCount"] 	= strconv.FormatInt(popConnCount, 10)
-		dbData["maxConn"]	= fmt.Sprintf("%d", node.Cfg.MaxConnNum)
-		dbData["type"] 		= "master"
+		dbData["popConnCount"] = strconv.FormatInt(popConnCount, 10)
+		dbData["maxConn"] = fmt.Sprintf("%d", node.Cfg.MaxConnNum)
+		dbData["type"] = "master"
 
 		data[node.Master.Addr()] = dbData
 
 		//get all slave monitor data
 		for _, slaveNode := range node.Slave {
 			slaveDbData := make(map[string]string)
-			idleConns,cacheConns,pushConnCount,popConnCount := slaveNode.ConnCount()
-			
-			slaveDbData["idleConn"] 		= strconv.Itoa(idleConns)
-			slaveDbData["cacheConns"] 		= strconv.Itoa(cacheConns)
-			slaveDbData["pushConnCount"] 	= strconv.FormatInt(pushConnCount, 10)
-			slaveDbData["popConnCount"] 	= strconv.FormatInt(popConnCount, 10)
-			slaveDbData["maxConn"]	= fmt.Sprintf("%d", node.Cfg.MaxConnNum)
-			slaveDbData["type"] 	= "slave"
+			idleConns, cacheConns, pushConnCount, popConnCount := slaveNode.ConnCount()
+
+			slaveDbData["idleConn"] = strconv.Itoa(idleConns)
+			slaveDbData["cacheConns"] = strconv.Itoa(cacheConns)
+			slaveDbData["pushConnCount"] = strconv.FormatInt(pushConnCount, 10)
+			slaveDbData["popConnCount"] = strconv.FormatInt(popConnCount, 10)
+			slaveDbData["maxConn"] = fmt.Sprintf("%d", node.Cfg.MaxConnNum)
+			slaveDbData["type"] = "slave"
 
 			data[slaveNode.Addr()] = slaveDbData
 		}

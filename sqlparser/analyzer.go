@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/flike/kingshard/sqltypes"
+	"github.com/muidea/magicProxy/sqltypes"
 )
 
 // GetDBName parses the specified DML and returns the

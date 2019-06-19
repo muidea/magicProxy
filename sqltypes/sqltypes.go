@@ -27,7 +27,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/flike/kingshard/core/hack"
+	"github.com/muidea/magicProxy/core/hack"
 )
 
 var (
