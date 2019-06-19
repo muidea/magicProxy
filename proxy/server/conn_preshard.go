@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/flike/kingshard/proxy/router"
 	"github.com/muidea/magicProxy/backend"
 	"github.com/muidea/magicProxy/core/errors"
 	"github.com/muidea/magicProxy/core/golog"
@@ -14,7 +15,6 @@ import (
 
 type ExecuteDB struct {
 	ExecNode *backend.Node
-	IsSlave  bool
 	sql      string
 }
 
@@ -56,7 +56,7 @@ func (c *ClientConn) preHandleShard(sql string) (bool, error) {
 		return false, nil
 	}
 	//get connection in DB
-	conn, err := c.getBackendConn(executeDB.ExecNode, executeDB.IsSlave)
+	conn, err := c.getBackendConn(executeDB.ExecNode)
 	defer c.closeConn(conn, false)
 	if err != nil {
 		return false, err
@@ -94,9 +94,6 @@ func (c *ClientConn) GetTransExecDB(tokens []string, sql string) (*ExecuteDB, er
 	tokensLen := len(tokens)
 	executeDB := new(ExecuteDB)
 	executeDB.sql = sql
-
-	//transaction execute in master db
-	executeDB.IsSlave = false
 
 	if 2 <= tokensLen {
 		if tokens[0][0] == mysql.COMMENT_PREFIX {

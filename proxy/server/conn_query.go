@@ -77,16 +77,9 @@ func (c *ClientConn) handleQuery(sql string) (err error) {
 	return nil
 }
 
-func (c *ClientConn) getBackendConn(n *backend.Node, fromSlave bool) (co *backend.BackendConn, err error) {
+func (c *ClientConn) getBackendConn(n *backend.Node) (co *backend.BackendConn, err error) {
 	if !c.isInTransaction() {
-		if fromSlave {
-			co, err = n.GetSlaveConn()
-			if err != nil {
-				co, err = n.GetMasterConn()
-			}
-		} else {
-			co, err = n.GetMasterConn()
-		}
+		co, err = n.GetMasterConn()
 		if err != nil {
 			golog.Error("server", "getBackendConn", err.Error(), 0)
 			return
