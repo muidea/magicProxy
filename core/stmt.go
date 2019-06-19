@@ -21,6 +21,7 @@ func init() {
 	columnFieldData = c.Dump()
 }
 
+// Stmt stmt define
 type Stmt struct {
 	id uint32
 
@@ -34,6 +35,7 @@ type Stmt struct {
 	sql string
 }
 
+// ResetParams reset params
 func (s *Stmt) ResetParams() {
 	s.args = make([]interface{}, s.params)
 }
@@ -81,19 +83,19 @@ func (c *Conn) handleStmtSendLongData(data []byte) error {
 			strconv.FormatUint(uint64(id), 10), "stmt_send_longdata")
 	}
 
-	paramId := binary.LittleEndian.Uint16(data[4:6])
-	if paramId >= uint16(s.params) {
+	paramID := binary.LittleEndian.Uint16(data[4:6])
+	if paramID >= uint16(s.params) {
 		return mysql.NewDefaultError(mysql.ER_WRONG_ARGUMENTS, "stmt_send_longdata")
 	}
 
-	if s.args[paramId] == nil {
-		s.args[paramId] = data[6:]
+	if s.args[paramID] == nil {
+		s.args[paramID] = data[6:]
 	} else {
-		if b, ok := s.args[paramId].([]byte); ok {
+		if b, ok := s.args[paramID].([]byte); ok {
 			b = append(b, data[6:]...)
-			s.args[paramId] = b
+			s.args[paramID] = b
 		} else {
-			return fmt.Errorf("invalid param long data type %T", s.args[paramId])
+			return fmt.Errorf("invalid param long data type %T", s.args[paramID])
 		}
 	}
 
@@ -128,8 +130,8 @@ func (c *Conn) handleStmtPrepare(sql string) error {
 	s.params = t.ParamNum()
 	s.columns = t.ColumnNum()
 
-	s.id = c.stmtId
-	c.stmtId++
+	s.id = c.stmtID
+	c.stmtID++
 
 	if err = c.writePrepare(s); err != nil {
 		return err
@@ -138,7 +140,7 @@ func (c *Conn) handleStmtPrepare(sql string) error {
 	s.ResetParams()
 	c.stmts[s.id] = s
 
-	err = co.ClosePrepare(t.GetId())
+	err = co.ClosePrepare(t.GetID())
 	if err != nil {
 		return err
 	}

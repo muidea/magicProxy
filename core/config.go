@@ -2,6 +2,7 @@ package core
 
 import "flag"
 
+// Config Config
 type Config struct {
 	ListenPort    string //ListenPort
 	MySQLPoolSize int
@@ -10,6 +11,7 @@ type Config struct {
 	MySQLPswd     string
 }
 
+// ParseArgCmd ParseArgCmd
 func ParseArgCmd() (*Config, error) {
 	var cfg Config
 	flag.StringVar(&cfg.ListenPort, "listen-port", ":3308", "mysql listen port")

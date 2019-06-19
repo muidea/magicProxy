@@ -14,7 +14,7 @@ func (c *Conn) dispatch(data []byte) error {
 	}
 	cmd := data[0]
 	data = data[1:]
-	log.Printf("--> sql (%d),db:%s, cmd:%v, sql:%s", c.connectionId, c.connectionDB, cmd, string(data))
+	log.Printf("--> sql (%d),db:%s, cmd:%v, sql:%s", c.connectionID, c.connectionDB, cmd, string(data))
 	switch cmd {
 	case mysql.COM_QUIT: // 1
 		c.handleRollback()
@@ -77,11 +77,12 @@ func (c *Conn) handleFieldList(data []byte) error {
 		return err
 	}
 
-	if fs, err := co.FieldList(table, wildcard); err != nil {
+	fs, err := co.FieldList(table, wildcard)
+	if err != nil {
 		return err
-	} else {
-		return c.writeFieldList(c.status, fs)
 	}
+
+	return c.writeFieldList(c.status, fs)
 }
 func (c *Conn) writeFieldList(status uint16, fs []*mysql.Field) error {
 	c.affectedRows = int64(-1)

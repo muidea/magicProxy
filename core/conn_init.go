@@ -19,7 +19,7 @@ func (c *Conn) writeInitialHandshake() error {
 	data = append(data, 0)
 
 	//connection id
-	data = append(data, byte(c.connectionId), byte(c.connectionId>>8), byte(c.connectionId>>16), byte(c.connectionId>>24))
+	data = append(data, byte(c.connectionID), byte(c.connectionID>>8), byte(c.connectionID>>16), byte(c.connectionID>>24))
 
 	//auth-plugin-data-part-1
 	data = append(data, c.salt[0:8]...)
@@ -28,7 +28,7 @@ func (c *Conn) writeInitialHandshake() error {
 	data = append(data, 0)
 
 	//capability flag lower 2 bytes, using default capability here
-	data = append(data, byte(DEFAULT_CAPABILITY), byte(DEFAULT_CAPABILITY>>8))
+	data = append(data, byte(DefaultCapability), byte(DefaultCapability>>8))
 
 	//charset, utf-8 default
 	data = append(data, uint8(mysql.DEFAULT_COLLATION_ID))
@@ -38,7 +38,7 @@ func (c *Conn) writeInitialHandshake() error {
 
 	//below 13 byte may not be used
 	//capability flag upper 2 bytes, using default capability here
-	data = append(data, byte(DEFAULT_CAPABILITY>>16), byte(DEFAULT_CAPABILITY>>24))
+	data = append(data, byte(DefaultCapability>>16), byte(DefaultCapability>>24))
 
 	//filter [0x15], for wireshark dump, value is 0x15
 	data = append(data, 0x15)

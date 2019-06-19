@@ -25,7 +25,7 @@ func (s *backStmt) ColumnNum() int {
 	return s.columns
 }
 
-func (s *backStmt) GetId() uint32 {
+func (s *backStmt) GetID() uint32 {
 	return s.id
 }
 
@@ -58,9 +58,9 @@ func (s *backStmt) write(args ...interface{}) error {
 	//NULL-bitmap, length: (num-params+7)
 	nullBitmap := make([]byte, (paramsNum+7)>>3)
 
-	var length int = int(1 + 4 + 1 + 4 + ((paramsNum + 7) >> 3) + 1 + (paramsNum << 1))
+	length := int(1 + 4 + 1 + 4 + ((paramsNum + 7) >> 3) + 1 + (paramsNum << 1))
 
-	var newParamBoundFlag byte = 0
+	newParamBoundFlag := byte(0)
 
 	for i := range args {
 		if args[i] == nil {

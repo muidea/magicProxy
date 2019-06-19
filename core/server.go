@@ -13,7 +13,7 @@ import (
 	"github.com/muidea/magicProxy/common/sql-parser/mysql"
 )
 
-var session uint32 = 0
+var session = uint32(0)
 
 // Server struct
 type Server struct {
@@ -42,6 +42,7 @@ func (p *Server) retMySQL(m Backend) {
 	}
 }
 
+// KeepAlive keep alive
 func (p *Server) KeepAlive() {
 	var err error
 	for p.running {
@@ -153,11 +154,11 @@ func (p *Server) warpConn(c net.Conn) (conn *Conn) {
 
 	conn = new(Conn)
 	conn.hash = sha1.New()
-	conn.connectionId = atomic.AddUint32(&session, 1)
+	conn.connectionID = atomic.AddUint32(&session, 1)
 	conn.status = mysql.SERVER_STATUS_AUTOCOMMIT
-	conn.stmtId = 0
+	conn.stmtID = 0
 	conn.affectedRows = 0
-	conn.lastInsertId = 0
+	conn.lastInsertID = 0
 	conn.raw = c
 	conn.stmts = make(map[uint32]*Stmt)
 	conn.salt, _ = mysql.RandomBuf(20)

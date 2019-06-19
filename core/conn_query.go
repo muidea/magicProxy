@@ -97,7 +97,7 @@ func (c *Conn) bindStmtArgs(s *Stmt, nullBitmap, paramTypes, paramValues []byte)
 	pos := 0
 
 	var v []byte
-	var n int = 0
+	var n = int(0)
 	var isNull bool
 	var err error
 
@@ -215,6 +215,7 @@ func (c *Conn) bindStmtArgs(s *Stmt, nullBitmap, paramTypes, paramValues []byte)
 	}
 	return nil
 }
+
 func (c *Conn) handlePrepareExec(stmt sqlparser.Statement, sql string, args []interface{}) error {
 	co := c.down
 
@@ -222,7 +223,7 @@ func (c *Conn) handlePrepareExec(stmt sqlparser.Statement, sql string, args []in
 	rs, err := c.executeInNode(co, sql, args)
 
 	if err != nil {
-		log.Printf("Conn, handlePrepareExec, %d, %s", c.connectionId, err.Error())
+		log.Printf("Conn, handlePrepareExec, %d, %s", c.connectionID, err.Error())
 		return err
 	}
 
@@ -250,7 +251,7 @@ func (c *Conn) handlePrepareSelect(stmt *sqlparser.Select, sql string, args []in
 	rs, err := c.executeInNode(co, sql, args)
 
 	if err != nil {
-		log.Printf("Conn, handlePrepareExec, %d, %s", c.connectionId, err.Error())
+		log.Printf("Conn, handlePrepareExec, %d, %s", c.connectionID, err.Error())
 		return err
 	}
 
@@ -348,11 +349,9 @@ func (c *Conn) handleQuery(sql string) (err error) {
 	case *sqlparser.Use:
 		return c.handleUseDB(v.DBName.String())
 	default:
-		fmt.Errorf("command %T not supported now", stmt)
+		fmt.Printf("command %v not supported now", stmt)
 		return c.handleExec2(sql, nil)
 	}
-
-	return nil
 }
 func (c *Conn) handleExec2(sql string, args []interface{}) (err error) {
 	var r *mysql.Result
@@ -393,7 +392,7 @@ func (c *Conn) mergeExecResult(rs []*mysql.Result) error {
 	}
 
 	if r.InsertId > 0 {
-		c.lastInsertId = int64(r.InsertId)
+		c.lastInsertID = int64(r.InsertId)
 	}
 	c.affectedRows = int64(r.AffectedRows)
 
@@ -419,7 +418,7 @@ func (c *Conn) handleSet(stmt *sqlparser.Set, sql string) (err error) {
 	// 	}
 	// 	return c.handleSetNames(stmt.Exprs[0].Expr, nil)
 	default:
-		log.Printf("Conn, handleSet, command not supported, %d, %s", c.connectionId, sql)
+		log.Printf("Conn, handleSet, command not supported, %d, %s", c.connectionID, sql)
 		return c.writeOK(nil)
 	}
 }
@@ -500,7 +499,7 @@ func (c *Conn) handleSetAutoCommit(val sqlparser.Expr) error {
 // 		name,
 // 	}
 
-// 	var t = fmt.Sprintf("%d", c.lastInsertId)
+// 	var t = fmt.Sprintf("%d", c.lastInsertID)
 // 	rows = append(rows, []string{t})
 
 // 	r := new(mysql.Resultset)

@@ -12,12 +12,14 @@ import (
 	"github.com/muidea/magicProxy/common/sql-parser/mysql"
 )
 
-var DEFAULT_CAPABILITY uint32 = mysql.CLIENT_LONG_PASSWORD | mysql.CLIENT_LONG_FLAG |
+// DefaultCapability default capability
+var DefaultCapability uint32 = mysql.CLIENT_LONG_PASSWORD | mysql.CLIENT_LONG_FLAG |
 	mysql.CLIENT_CONNECT_WITH_DB | mysql.CLIENT_PROTOCOL_41 |
 	mysql.CLIENT_TRANSACTIONS | mysql.CLIENT_SECURE_CONNECTION
 
-var baseConnId uint32 = 10000
+var baseConnID uint32 = 10000
 
+// Conn conn define
 type Conn struct {
 	hash hash.Hash
 	raw  net.Conn
@@ -25,11 +27,11 @@ type Conn struct {
 
 	down Backend
 
-	connectionId uint32
-	stmtId       uint32
+	connectionID uint32
+	stmtID       uint32
 	stmts        map[uint32]*Stmt //prepare相关,client端到proxy的stmt
 
-	lastInsertId int64
+	lastInsertID int64
 	affectedRows int64
 
 	status uint16
@@ -44,6 +46,7 @@ type Conn struct {
 	curDB    string
 }
 
+// Close close conn
 func (c *Conn) Close() {
 	if c.shutdown {
 		return
@@ -53,6 +56,7 @@ func (c *Conn) Close() {
 	return
 }
 
+// Run run
 func (c *Conn) Run(down Backend) {
 	c.down = down
 	c.shutdown = false
@@ -62,7 +66,7 @@ func (c *Conn) Run(down Backend) {
 			const size = 4096
 			buf := make([]byte, size)
 			buf = buf[:runtime.Stack(buf, false)]
-			log.Printf("Conn, Run, %d, %s %s", c.connectionId, err.Error(), string(buf))
+			log.Printf("Conn, Run, %d, %s %s", c.connectionID, err.Error(), string(buf))
 		}
 		c.Close()
 	}()
@@ -71,13 +75,13 @@ func (c *Conn) Run(down Backend) {
 		data, err := c.ReadPacket()
 
 		if err != nil {
-			log.Printf("Conn, Run, ReadPacket, %d, %s %s", c.connectionId, err.Error(), string(data))
+			log.Printf("Conn, Run, ReadPacket, %d, %s %s", c.connectionID, err.Error(), string(data))
 			c.Close()
 			break
 		}
 
 		if err = c.dispatch(data); err != nil {
-			log.Printf("Conn, Run, dispatch, %d, %s %s", c.connectionId, err.Error(), string(data))
+			log.Printf("Conn, Run, dispatch, %d, %s %s", c.connectionID, err.Error(), string(data))
 			c.writeErr(err)
 			if err == mysql.ErrBadConn {
 				down.ReConnect()
@@ -87,7 +91,7 @@ func (c *Conn) Run(down Backend) {
 		}
 
 		if c.shutdown {
-			log.Printf("Conn, Run, %d, %s", c.connectionId, "is going down")
+			log.Printf("Conn, Run, %d, %s", c.connectionID, "is going down")
 			break
 		}
 
@@ -98,15 +102,15 @@ func (c *Conn) Run(down Backend) {
 // Handshake func
 func (c *Conn) Handshake() error {
 	if err := c.writeInitialHandshake(); err != nil {
-		log.Printf("Conn, Handshake, %d, %s", c.connectionId, err.Error())
+		log.Printf("Conn, Handshake, %d, %s", c.connectionID, err.Error())
 		return err
 	}
 	if err := c.readHandshakeResponse(); err != nil {
-		log.Printf("Conn, Handshake, %d, %s", c.connectionId, err.Error())
+		log.Printf("Conn, Handshake, %d, %s", c.connectionID, err.Error())
 		return err
 	}
 	if err := c.writeOK(nil); err != nil {
-		log.Printf("Conn, Handshake, %d, %s", c.connectionId, err.Error())
+		log.Printf("Conn, Handshake, %d, %s", c.connectionID, err.Error())
 		return err
 	}
 

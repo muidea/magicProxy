@@ -12,10 +12,12 @@ import (
 	"github.com/muidea/magicProxy/common/sql-parser/mysql"
 )
 
+// Executor Executor
 type Executor interface {
 	Execute(command string, args ...interface{}) (*mysql.Result, error)
 }
 
+// Backend Backend
 type Backend interface {
 	Close() error
 	Executor
@@ -202,7 +204,7 @@ func (c *backConn) readInitialHandshake() error {
 	if len(data) > pos {
 		//skip server charset
 		//c.charset = data[pos]
-		pos += 1
+		pos++
 
 		c.status = binary.LittleEndian.Uint16(data[pos : pos+2])
 		pos += 2
@@ -400,16 +402,17 @@ func (c *backConn) GetAddr() string {
 func (c *backConn) Execute(command string, args ...interface{}) (*mysql.Result, error) {
 	if len(args) == 0 {
 		return c.exec(command)
-	} else {
-		if s, err := c.Prepare(command); err != nil {
-			return nil, err
-		} else {
-			var r *mysql.Result
-			r, err = s.Execute(args...)
-			s.Close()
-			return r, err
-		}
 	}
+
+	s, err := c.Prepare(command)
+	if err != nil {
+		return nil, err
+	}
+
+	var r *mysql.Result
+	r, err = s.Execute(args...)
+	s.Close()
+	return r, err
 }
 
 func (c *backConn) ClosePrepare(id uint32) error {
@@ -468,16 +471,17 @@ func (c *backConn) SetCharset(charset string, collation mysql.CollationId) error
 
 	_, ok = mysql.Collations[collation]
 	if !ok {
-		return fmt.Errorf("invalid collation %s", collation)
+		return fmt.Errorf("invalid collation %d", collation)
 	}
 
-	if _, err := c.exec(fmt.Sprintf("SET NAMES %s COLLATE %s", charset, mysql.Collations[collation])); err != nil {
+	_, err := c.exec(fmt.Sprintf("SET NAMES %s COLLATE %s", charset, mysql.Collations[collation]))
+	if err != nil {
 		return err
-	} else {
-		c.collation = collation
-		c.charset = charset
-		return nil
 	}
+
+	c.collation = collation
+	c.charset = charset
+	return nil
 }
 
 func (c *backConn) FieldList(table string, wildcard string) ([]*mysql.Field, error) {
@@ -494,24 +498,23 @@ func (c *backConn) FieldList(table string, wildcard string) ([]*mysql.Field, err
 	var f *mysql.Field
 	if data[0] == mysql.ERR_HEADER {
 		return nil, c.handleErrorPacket(data)
-	} else {
-		for {
-			if data, err = c.readPacket(); err != nil {
-				return nil, err
-			}
-
-			// EOF Packet
-			if c.isEOFPacket(data) {
-				return fs, nil
-			}
-
-			if f, err = mysql.FieldData(data).Parse(); err != nil {
-				return nil, err
-			}
-			fs = append(fs, f)
-		}
 	}
-	return nil, fmt.Errorf("field list error")
+
+	for {
+		if data, err = c.readPacket(); err != nil {
+			return nil, err
+		}
+
+		// EOF Packet
+		if c.isEOFPacket(data) {
+			return fs, nil
+		}
+
+		if f, err = mysql.FieldData(data).Parse(); err != nil {
+			return nil, err
+		}
+		fs = append(fs, f)
+	}
 }
 
 func (c *backConn) exec(query string) (*mysql.Result, error) {
@@ -553,7 +556,7 @@ func (c *backConn) readResultset(data []byte, binary bool) (*mysql.Result, error
 }
 
 func (c *backConn) readResultColumns(result *mysql.Result) (err error) {
-	var i int = 0
+	i := 0
 	var data []byte
 
 	for {
@@ -652,7 +655,7 @@ func (c *backConn) isEOFPacket(data []byte) bool {
 
 func (c *backConn) handleOKPacket(data []byte) (*mysql.Result, error) {
 	var n int
-	var pos int = 1
+	pos := 1
 
 	r := new(mysql.Result)
 
@@ -682,7 +685,7 @@ func (c *backConn) handleOKPacket(data []byte) (*mysql.Result, error) {
 func (c *backConn) handleErrorPacket(data []byte) error {
 	e := new(mysql.SqlError)
 
-	var pos int = 1
+	pos := 1
 
 	e.Code = binary.LittleEndian.Uint16(data[pos:])
 	pos += 2
