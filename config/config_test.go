@@ -26,50 +26,25 @@ func TestConfig(t *testing.T) {
 addr : 0.0.0.0:9696
 user : root
 password : root
-log_level : error
-allow_ips : 127.0.0.1,192.168.0.13
 
 nodes :
 - 
   name : node1 
-  down_after_noalive : 300
   max_conns_limit : 16
   user: root
   password: root
-  master : 127.0.0.1:3306
-  slave : 127.0.0.1:4306
+  address : 127.0.0.1:3306
 - 
   name : node2
   user: root
-  master : 127.0.0.1:3307
+  address : 127.0.0.1:3307
 
 - 
   name : node3 
-  down_after_noalive : 300
   max_conns_limit : 16
   user: root
   password: root
-  master : 127.0.0.1:3308
-
-schema :
-  nodes: [node1, node2, node3]
-  default: node1
-  shard:
-    -  
-      db : kingshard  
-      table: test_shard_hash
-      key: id
-      nodes: [node1, node2, node3]
-      type: hash
-      locations: [4,4,4]
-    -   
-      db : kingshard
-      table: test_shard_range
-      key: id
-      type: range
-      nodes: [node2, node3]
-      locations: [4,4]
-      table_row_limit: 10000
+  address : 127.0.0.1:3308
 `)
 
 	cfg, err := ParseConfigData(testConfigData)
@@ -80,19 +55,14 @@ schema :
 	if len(cfg.Nodes) != 3 {
 		t.Fatal(len(cfg.Nodes))
 	}
-	if cfg.AllowIps != "127.0.0.1,192.168.0.13" {
-		t.Fatal(len(cfg.AllowIps))
-	}
 	testNode := NodeConfig{
-		Name:             "node1",
-		DownAfterNoAlive: 300,
-		MaxConnNum:       16,
+		Name:       "node1",
+		MaxConnNum: 16,
 
 		User:     "root",
 		Password: "root",
 
-		Master: "127.0.0.1:3306",
-		Slave:  "127.0.0.1:4306",
+		Address: "127.0.0.1:3306",
 	}
 
 	if !reflect.DeepEqual(cfg.Nodes[0], testNode) {
@@ -101,59 +71,12 @@ schema :
 	}
 
 	testNode_2 := NodeConfig{
-		Name:   "node2",
-		User:   "root",
-		Master: "127.0.0.1:3307",
+		Name:    "node2",
+		User:    "root",
+		Address: "127.0.0.1:3307",
 	}
 
 	if !reflect.DeepEqual(cfg.Nodes[1], testNode_2) {
 		t.Fatal("node2 must equal")
-	}
-
-	testShard_1 := ShardConfig{
-		DB:            "kingshard",
-		Table:         "test_shard_hash",
-		Key:           "id",
-		Nodes:         []string{"node1", "node2", "node3"},
-		Locations:     []int{4, 4, 4},
-		Type:          "hash",
-		TableRowLimit: 0,
-	}
-	if !reflect.DeepEqual(cfg.Schema.ShardRule[0], testShard_1) {
-		fmt.Printf("%v\n", cfg.Schema.ShardRule[0])
-		t.Fatal("ShardConfig0 must equal")
-	}
-
-	testShard_2 := ShardConfig{
-		DB:            "kingshard",
-		Table:         "test_shard_range",
-		Key:           "id",
-		Nodes:         []string{"node2", "node3"},
-		Type:          "range",
-		Locations:     []int{4, 4},
-		TableRowLimit: 10000,
-	}
-	if !reflect.DeepEqual(cfg.Schema.ShardRule[1], testShard_2) {
-		fmt.Printf("%v\n", cfg.Schema.ShardRule[1])
-		t.Fatal("ShardConfig1 must equal")
-	}
-
-	if 2 != len(cfg.Schema.ShardRule) {
-		t.Fatal("ShardRule must 2")
-	}
-
-	testSchema := SchemaConfig{
-		Nodes:     []string{"node1", "node2", "node3"},
-		Default:   "node1",
-		ShardRule: []ShardConfig{testShard_1, testShard_2},
-	}
-
-	if !reflect.DeepEqual(cfg.Schema, testSchema) {
-		t.Fatal("schema must equal")
-	}
-
-	if cfg.LogLevel != "error" || cfg.User != "root" ||
-		cfg.Password != "root" || cfg.Addr != "0.0.0.0:9696" {
-		t.Fatal("Top Config not equal.")
 	}
 }

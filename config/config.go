@@ -33,14 +33,13 @@ type Config struct {
 
 //node节点对应的配置
 type NodeConfig struct {
-	Name             string `yaml:"name"`
-	DownAfterNoAlive int    `yaml:"down_after_noalive"`
-	MaxConnNum       int    `yaml:"max_conns_limit"`
+	Name       string `yaml:"name"`
+	MaxConnNum int    `yaml:"max_conns_limit"`
 
 	User     string `yaml:"user"`
 	Password string `yaml:"password"`
 
-	Master string `yaml:"master"`
+	Address string `yaml:"address"`
 }
 
 func ParseConfigData(data []byte) (*Config, error) {
