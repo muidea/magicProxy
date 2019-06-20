@@ -3,12 +3,14 @@ package backend
 import (
 	"fmt"
 	"testing"
+
+	. "github.com/muidea/magicProxy/mysql"
 )
 
 func newTestConn() *Conn {
 	c := new(Conn)
 
-	if err := c.Connect("127.0.0.1:3306", "root", "", "kingshard"); err != nil {
+	if err := c.Connect("127.0.0.1:3306", "root", "rootkit", "testDB"); err != nil {
 		panic(err)
 	}
 

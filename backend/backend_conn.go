@@ -436,7 +436,7 @@ func (c *Conn) SetCharset(charset string, collation mysql.CollationId) error {
 
 	_, ok = mysql.Collations[collation]
 	if !ok {
-		return fmt.Errorf("invalid collation %s", collation)
+		return fmt.Errorf("invalid collation %d", collation)
 	}
 
 	if _, err := c.exec(fmt.Sprintf("SET NAMES %s COLLATE %s", charset, mysql.Collations[collation])); err != nil {

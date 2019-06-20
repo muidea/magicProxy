@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/muidea/magicProxy/backend"
 	"github.com/muidea/magicProxy/mysql"
 
 	"github.com/muidea/magicProxy/config"
@@ -90,10 +91,6 @@ func (s *Server) newClientConn(co net.Conn) *ClientConn {
 	tcpConn.SetNoDelay(false)
 	c.rawConn = tcpConn
 
-	func() {
-		c.proxy = s
-	}()
-
 	c.pkg = mysql.NewPacketIO(tcpConn)
 	c.proxy = s
 
@@ -170,4 +167,9 @@ func (s *Server) Close() {
 	if s.listener != nil {
 		s.listener.Close()
 	}
+}
+
+// GetBackendNode get backend node
+func (s *Server) GetBackendNode() (ret *backend.Node) {
+	return
 }

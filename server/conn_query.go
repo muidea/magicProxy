@@ -76,6 +76,9 @@ func (c *ClientConn) handleQuery(sql string) (err error) {
 }
 
 func (c *ClientConn) getBackendConn() (co *backend.BackendConn, err error) {
+	bkNode := c.proxy.GetBackendNode()
+	co, err = bkNode.GetMasterConn()
+
 	if !c.isInTransaction() {
 		panic("todo")
 	} else {
