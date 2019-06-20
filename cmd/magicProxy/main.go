@@ -19,25 +19,16 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path"
 	"runtime"
-	"strings"
 	"syscall"
 
 	"github.com/muidea/magicProxy/config"
 	"github.com/muidea/magicProxy/core/golog"
-	"github.com/muidea/magicProxy/proxy/server"
+	"github.com/muidea/magicProxy/server"
 )
 
 var configFile *string = flag.String("config", "/etc/ks.yaml", "magicProxy config file")
-var logLevel *string = flag.String("log-level", "", "log level [debug|info|warn|error], default error")
 var version *bool = flag.Bool("v", false, "the version of magicProxy")
-
-const (
-	sqlLogName = "sql.log"
-	sysLogName = "sys.log"
-	MaxLogSize = 1024 * 1024 * 1024
-)
 
 var (
 	BuildDate    string
@@ -73,31 +64,6 @@ func main() {
 		return
 	}
 
-	//when the log file size greater than 1GB, magicProxy will generate a new file
-	if len(cfg.LogPath) != 0 {
-		sysFilePath := path.Join(cfg.LogPath, sysLogName)
-		sysFile, err := golog.NewRotatingFileHandler(sysFilePath, MaxLogSize, 1)
-		if err != nil {
-			fmt.Printf("new log file error:%v\n", err.Error())
-			return
-		}
-		golog.GlobalSysLogger = golog.New(sysFile, golog.Lfile|golog.Ltime|golog.Llevel)
-
-		sqlFilePath := path.Join(cfg.LogPath, sqlLogName)
-		sqlFile, err := golog.NewRotatingFileHandler(sqlFilePath, MaxLogSize, 1)
-		if err != nil {
-			fmt.Printf("new log file error:%v\n", err.Error())
-			return
-		}
-		golog.GlobalSqlLogger = golog.New(sqlFile, golog.Lfile|golog.Ltime|golog.Llevel)
-	}
-
-	if *logLevel != "" {
-		setLogLevel(*logLevel)
-	} else {
-		setLogLevel(cfg.LogLevel)
-	}
-
 	var svr *server.Server
 	svr, err = server.NewServer(cfg)
 	if err != nil {
@@ -113,7 +79,6 @@ func main() {
 		syscall.SIGTERM,
 		syscall.SIGQUIT,
 		syscall.SIGPIPE,
-		syscall.SIGUSR1,
 	)
 
 	go func() {
@@ -126,31 +91,8 @@ func main() {
 				svr.Close()
 			} else if sig == syscall.SIGPIPE {
 				golog.Info("main", "main", "Ignore broken pipe signal", 0)
-			} else if sig == syscall.SIGUSR1 {
-				golog.Info("main", "main", "Got update config signal", 0)
-				newCfg, err := config.ParseConfigFile(*configFile)
-				if err != nil {
-					golog.Error("main", "main", fmt.Sprintf("parse config file error:%s", err.Error()), 0)
-				} else {
-					svr.UpdateConfig(newCfg)
-				}
 			}
 		}
 	}()
 	svr.Run()
-}
-
-func setLogLevel(level string) {
-	switch strings.ToLower(level) {
-	case "debug":
-		golog.GlobalSysLogger.SetLevel(golog.LevelDebug)
-	case "info":
-		golog.GlobalSysLogger.SetLevel(golog.LevelInfo)
-	case "warn":
-		golog.GlobalSysLogger.SetLevel(golog.LevelWarn)
-	case "error":
-		golog.GlobalSysLogger.SetLevel(golog.LevelError)
-	default:
-		golog.GlobalSysLogger.SetLevel(golog.LevelError)
-	}
 }
