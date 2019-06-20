@@ -111,7 +111,7 @@ func (s *Server) newClientConn(co net.Conn) *ClientConn {
 
 	c.pkg.Sequence = 0
 
-	c.connectionId = atomic.AddUint32(&baseConnId, 1)
+	c.connectionID = atomic.AddUint32(&baseConnID, 1)
 
 	c.status = mysql.SERVER_STATUS_AUTOCOMMIT
 
@@ -122,7 +122,7 @@ func (s *Server) newClientConn(co net.Conn) *ClientConn {
 	c.charset = mysql.DEFAULT_CHARSET
 	c.collation = mysql.DEFAULT_COLLATION_ID
 
-	c.stmtId = 0
+	c.stmtID = 0
 	c.stmts = make(map[uint32]*Stmt)
 
 	return c

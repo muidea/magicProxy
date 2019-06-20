@@ -31,7 +31,7 @@ func (c *ClientConn) handleSet(stmt *sqlparser.Set, sql string) (err error) {
 		return c.handleSetNames(stmt.Exprs[0].Expr, nil)
 	default:
 		golog.Error("ClientConn", "handleSet", "command not supported",
-			c.connectionId, "sql", sql)
+			c.connectionID, "sql", sql)
 		return c.writeOK(nil)
 	}
 }

@@ -73,8 +73,8 @@ func (c *ClientConn) handleStmtPrepare(sql string) error {
 	s.params = t.ParamNum()
 	s.columns = t.ColumnNum()
 
-	s.id = c.stmtId
-	c.stmtId++
+	s.id = c.stmtID
+	c.stmtID++
 
 	if err = c.writePrepare(s); err != nil {
 		return err
@@ -249,7 +249,7 @@ func (c *ClientConn) handlePrepareSelect(stmt *sqlparser.Select, sql string, arg
 
 	rs, err := c.executeInNode(conn, sql, args)
 	if err != nil {
-		golog.Error("ClientConn", "handlePrepareSelect", err.Error(), c.connectionId)
+		golog.Error("ClientConn", "handlePrepareSelect", err.Error(), c.connectionID)
 		return err
 	}
 
@@ -280,7 +280,7 @@ func (c *ClientConn) handlePrepareExec(stmt sqlparser.Statement, sql string, arg
 	c.closeConn(conn, false)
 
 	if err != nil {
-		golog.Error("ClientConn", "handlePrepareExec", err.Error(), c.connectionId)
+		golog.Error("ClientConn", "handlePrepareExec", err.Error(), c.connectionID)
 		return err
 	}
 

@@ -25,7 +25,7 @@ type ClientConn struct {
 
 	capability uint32
 
-	connectionId uint32
+	connectionID uint32
 
 	status    uint16
 	collation mysql.CollationId
@@ -38,10 +38,10 @@ type ClientConn struct {
 
 	closed bool
 
-	lastInsertId int64
+	lastInsertID int64
 	affectedRows int64
 
-	stmtId uint32
+	stmtID uint32
 
 	stmts map[uint32]*Stmt //prepare相关,client端到proxy的stmt
 }
@@ -50,18 +50,18 @@ var DEFAULT_CAPABILITY uint32 = mysql.CLIENT_LONG_PASSWORD | mysql.CLIENT_LONG_F
 	mysql.CLIENT_CONNECT_WITH_DB | mysql.CLIENT_PROTOCOL_41 |
 	mysql.CLIENT_TRANSACTIONS | mysql.CLIENT_SECURE_CONNECTION
 
-var baseConnId uint32 = 10000
+var baseConnID uint32 = 10000
 
 func (c *ClientConn) Handshake() error {
 	if err := c.writeInitialHandshake(); err != nil {
 		golog.Error("server", "Handshake", err.Error(),
-			c.connectionId, "msg", "send initial handshake error")
+			c.connectionID, "msg", "send initial handshake error")
 		return err
 	}
 
 	if err := c.readHandshakeResponse(); err != nil {
 		golog.Error("server", "readHandshakeResponse",
-			err.Error(), c.connectionId,
+			err.Error(), c.connectionID,
 			"msg", "read Handshake Response error")
 		return err
 	}
@@ -69,7 +69,7 @@ func (c *ClientConn) Handshake() error {
 	if err := c.writeOK(nil); err != nil {
 		golog.Error("server", "readHandshakeResponse",
 			"write ok fail",
-			c.connectionId, "error", err.Error())
+			c.connectionID, "error", err.Error())
 		return err
 	}
 
@@ -100,7 +100,7 @@ func (c *ClientConn) writeInitialHandshake() error {
 	data = append(data, 0)
 
 	//connection id
-	data = append(data, byte(c.connectionId), byte(c.connectionId>>8), byte(c.connectionId>>16), byte(c.connectionId>>24))
+	data = append(data, byte(c.connectionID), byte(c.connectionID>>8), byte(c.connectionID>>16), byte(c.connectionID>>24))
 
 	//auth-plugin-data-part-1
 	data = append(data, c.salt[0:8]...)
@@ -245,7 +245,7 @@ func (c *ClientConn) Run() {
 		if err := c.dispatch(data); err != nil {
 			c.proxy.counter.IncrErrLogTotal()
 			golog.Error("ClientConn", "Run",
-				err.Error(), c.connectionId,
+				err.Error(), c.connectionID,
 			)
 			c.writeError(err)
 			if err == mysql.ErrBadConn {

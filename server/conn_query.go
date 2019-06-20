@@ -157,7 +157,7 @@ func (c *ClientConn) handleExec(stmt sqlparser.Statement, args []interface{}) er
 	conns, err := c.getBackendConn()
 	defer c.closeConn(conns, false)
 	if err != nil {
-		golog.Error("ClientConn", "handleExec", err.Error(), c.connectionId)
+		golog.Error("ClientConn", "handleExec", err.Error(), c.connectionID)
 		return err
 	}
 	if conns == nil {

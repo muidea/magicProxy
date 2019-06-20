@@ -79,7 +79,7 @@ func (c *ClientConn) handleSelect(stmt *sqlparser.Select, args []interface{}) er
 	conns, err := c.getBackendConn()
 	defer c.closeConn(conns, false)
 	if err != nil {
-		golog.Error("ClientConn", "handleExec", err.Error(), c.connectionId)
+		golog.Error("ClientConn", "handleExec", err.Error(), c.connectionID)
 		return err
 	}
 	if conns == nil {
@@ -109,7 +109,7 @@ func (c *ClientConn) handleSimpleSelect(stmt *sqlparser.SimpleSelect) error {
 		name,
 	}
 
-	var t = fmt.Sprintf("%d", c.lastInsertId)
+	var t = fmt.Sprintf("%d", c.lastInsertID)
 	rows = append(rows, []string{t})
 
 	r := new(mysql.Resultset)
@@ -664,7 +664,7 @@ func (c *ClientConn) calFuncExprValue(funcName string,
 	case MinFunc:
 		return c.getMinFuncExprValue(rs, index)
 	case LastInsertIdFunc:
-		return c.lastInsertId, nil
+		return c.lastInsertID, nil
 	default:
 		if len(rs) == 0 {
 			return nil, nil
