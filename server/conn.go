@@ -13,7 +13,7 @@ import (
 	"github.com/muidea/magicProxy/mysql"
 )
 
-//client <-> proxy
+// ClientConn client <-> proxy
 type ClientConn struct {
 	sync.Mutex
 
@@ -46,12 +46,14 @@ type ClientConn struct {
 	stmts map[uint32]*Stmt //prepare相关,client端到proxy的stmt
 }
 
-var DEFAULT_CAPABILITY uint32 = mysql.CLIENT_LONG_PASSWORD | mysql.CLIENT_LONG_FLAG |
+// DefaultCapability default capability
+var DefaultCapability = uint32(mysql.CLIENT_LONG_PASSWORD | mysql.CLIENT_LONG_FLAG |
 	mysql.CLIENT_CONNECT_WITH_DB | mysql.CLIENT_PROTOCOL_41 |
-	mysql.CLIENT_TRANSACTIONS | mysql.CLIENT_SECURE_CONNECTION
+	mysql.CLIENT_TRANSACTIONS | mysql.CLIENT_SECURE_CONNECTION)
 
 var baseConnID uint32 = 10000
 
+// Handshake handshake
 func (c *ClientConn) Handshake() error {
 	if err := c.writeInitialHandshake(); err != nil {
 		golog.Error("server", "Handshake", err.Error(),
@@ -77,6 +79,7 @@ func (c *ClientConn) Handshake() error {
 	return nil
 }
 
+// Close close
 func (c *ClientConn) Close() error {
 	if c.closed {
 		return nil
@@ -109,7 +112,7 @@ func (c *ClientConn) writeInitialHandshake() error {
 	data = append(data, 0)
 
 	//capability flag lower 2 bytes, using default capability here
-	data = append(data, byte(DEFAULT_CAPABILITY), byte(DEFAULT_CAPABILITY>>8))
+	data = append(data, byte(DefaultCapability), byte(DefaultCapability>>8))
 
 	//charset, utf-8 default
 	data = append(data, uint8(mysql.DEFAULT_COLLATION_ID))
@@ -119,7 +122,7 @@ func (c *ClientConn) writeInitialHandshake() error {
 
 	//below 13 byte may not be used
 	//capability flag upper 2 bytes, using default capability here
-	data = append(data, byte(DEFAULT_CAPABILITY>>16), byte(DEFAULT_CAPABILITY>>24))
+	data = append(data, byte(DefaultCapability>>16), byte(DefaultCapability>>24))
 
 	//filter [0x15], for wireshark dump, value is 0x15
 	data = append(data, 0x15)
@@ -220,6 +223,7 @@ func (c *ClientConn) readHandshakeResponse() error {
 	return nil
 }
 
+// Run run
 func (c *ClientConn) Run() {
 	defer func() {
 		r := recover()
@@ -242,7 +246,8 @@ func (c *ClientConn) Run() {
 			return
 		}
 
-		if err := c.dispatch(data); err != nil {
+		err = c.dispatch(data)
+		if err != nil {
 			c.proxy.counter.IncrErrLogTotal()
 			golog.Error("ClientConn", "Run",
 				err.Error(), c.connectionID,
