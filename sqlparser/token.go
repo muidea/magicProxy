@@ -127,8 +127,6 @@ var keywords = map[string]int{
 	"replace": REPLACE,
 
 	//for kingshard
-	"admin":       ADMIN,
-	"help":        HELP,
 	"start":       START,
 	"transaction": TRANSACTION,
 	"collate":     COLLATE,

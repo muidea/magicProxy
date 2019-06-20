@@ -113,8 +113,6 @@ var (
 // Replace
 %token <empty> REPLACE
 
-// admin
-%token <empty> ADMIN HELP
 //offset
 %token <empty> OFFSET
 //collate
@@ -182,7 +180,6 @@ var (
 
 %type <statement> begin_statement commit_statement rollback_statement
 %type <statement> replace_statement
-%type <statement> admin_statement
 %type <statement> use_statement
 %type <statement> truncate_statement
 
@@ -211,16 +208,11 @@ command:
 | commit_statement
 | rollback_statement
 | replace_statement
-| admin_statement
 | use_statement
 | truncate_statement
 
 select_statement:
-  SELECT comment_opt distinct_opt select_expression_list
-  {
-    $$ = &SimpleSelect{Comments: Comments($2), Distinct: $3, SelectExprs: $4}
-  }
-| SELECT comment_opt distinct_opt select_expression_list FROM table_expression_list where_expression_opt group_by_opt having_opt order_by_opt limit_opt lock_opt
+ SELECT comment_opt distinct_opt select_expression_list FROM table_expression_list where_expression_opt group_by_opt having_opt order_by_opt limit_opt lock_opt
   {
     $$ = &Select{Comments: Comments($2), Distinct: $3, SelectExprs: $4, From: $6, Where: NewWhere(AST_WHERE, $7), GroupBy: GroupBy($8), Having: NewWhere(AST_HAVING, $9), OrderBy: $10, Limit: $11, Lock: $12}
   }
@@ -324,16 +316,6 @@ rollback_statement:
   ROLLBACK
   {
     $$ = &Rollback{}
-  }
-
-admin_statement:
-  ADMIN dml_table_expression column_list_opt row_list
-  {
-    $$ = &Admin{Region : $2, Columns : $3,Rows:$4}
-  }
-| ADMIN HELP
-  {
-    $$ = &AdminHelp{}
   }
 
 use_statement:

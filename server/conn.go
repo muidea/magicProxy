@@ -38,7 +38,6 @@ type ClientConn struct {
 
 	closed bool
 
-	lastInsertID int64
 	affectedRows int64
 
 	stmtID uint32

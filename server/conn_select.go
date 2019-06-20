@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/muidea/magicProxy/core/golog"
-	"github.com/muidea/magicProxy/core/hack"
 	"github.com/muidea/magicProxy/mysql"
 	"github.com/muidea/magicProxy/sqlparser"
 )
@@ -27,11 +26,12 @@ func (c *ClientConn) handleFieldList(data []byte) error {
 		return err
 	}
 
-	if fs, err := co.FieldList(table, wildcard); err != nil {
+	fs, err := co.FieldList(table, wildcard)
+	if err != nil {
 		return err
-	} else {
-		return c.writeFieldList(c.status, fs)
 	}
+
+	return c.writeFieldList(c.status, fs)
 }
 
 func (c *ClientConn) writeFieldList(status uint16, fs []*mysql.Field) error {
@@ -61,46 +61,17 @@ func (c *ClientConn) handleSelect(stmt *sqlparser.Select, args []interface{}) er
 		golog.Error("ClientConn", "handleExec", err.Error(), c.connectionID)
 		return err
 	}
+
 	if conns == nil {
-		return c.writeOK(nil)
+		err = fmt.Errorf("can't get backend connection")
+		golog.Error("ClientConn", "handleExec", err.Error(), c.connectionID)
+		return err
 	}
 
-	// panic("todo")
 	rs, err := c.executeInNode(conns, "sql", args)
 	if err == nil {
 		return c.writeOK(rs)
-		//err = c.mergeExecResult(rs)
 	}
 
 	return err
-}
-
-//only process last_inser_id
-func (c *ClientConn) handleSimpleSelect(stmt *sqlparser.SimpleSelect) error {
-	nonStarExpr, _ := stmt.SelectExprs[0].(*sqlparser.NonStarExpr)
-	var name string = hack.String(nonStarExpr.As)
-	if name == "" {
-		name = "last_insert_id()"
-	}
-	var column = 1
-	var rows [][]string
-	var names []string = []string{
-		name,
-	}
-
-	var t = fmt.Sprintf("%d", c.lastInsertID)
-	rows = append(rows, []string{t})
-
-	r := new(mysql.Resultset)
-
-	var values [][]interface{} = make([][]interface{}, len(rows))
-	for i := range rows {
-		values[i] = make([]interface{}, column)
-		for j := range rows[i] {
-			values[i][j] = rows[i][j]
-		}
-	}
-
-	r, _ = c.buildResultset(nil, names, values)
-	return c.writeResultset(c.status, r)
 }
