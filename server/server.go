@@ -1,6 +1,7 @@
 package server
 
 import (
+	"log"
 	"net"
 	"runtime"
 	"sync/atomic"
@@ -20,6 +21,17 @@ const (
 	Unknown
 )
 
+func parseNode(cfg config.NodeConfig) (*backend.Node, error) {
+	n := new(backend.Node)
+	n.Cfg = cfg
+
+	n.Online = true
+	go n.CheckNode()
+
+	return n, nil
+}
+
+// Server server define
 type Server struct {
 	cfg  *config.Config
 	addr string
@@ -29,10 +41,13 @@ type Server struct {
 
 	counter *Counter
 
+	databaseNode *backend.Node
+
 	listener net.Listener
 	running  bool
 }
 
+// NewServer new server
 func NewServer(cfg *config.Config) (*Server, error) {
 	s := new(Server)
 
@@ -143,6 +158,7 @@ func (s *Server) onConn(c net.Conn) {
 	conn.Run()
 }
 
+// Run run server
 func (s *Server) Run() error {
 	s.running = true
 
@@ -162,6 +178,7 @@ func (s *Server) Run() error {
 	return nil
 }
 
+// Close close server
 func (s *Server) Close() {
 	s.running = false
 	if s.listener != nil {
@@ -171,5 +188,16 @@ func (s *Server) Close() {
 
 // GetBackendNode get backend node
 func (s *Server) GetBackendNode() (ret *backend.Node) {
+	if s.databaseNode == nil {
+		node, err := parseNode(s.cfg.Node)
+		if err != nil {
+			log.Printf("parse database Node failed,")
+			return
+		}
+
+		s.databaseNode = node
+	}
+
+	ret = s.databaseNode
 	return
 }

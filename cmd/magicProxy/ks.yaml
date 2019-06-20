@@ -6,8 +6,7 @@ addr : 0.0.0.0:9696
 #proxy_charset: gbk
 
 # node is an agenda for real remote mysql server.
-nodes :
--
+node :
     name : node1
 
     # default max conns for mysql server

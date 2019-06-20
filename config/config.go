@@ -23,15 +23,15 @@ import (
 //用于通过api保存配置
 var configFileName string
 
-//整个config文件对应的结构
+//Config 整个config文件对应的结构
 type Config struct {
 	Addr string `yaml:"addr"`
 
-	Charset string       `yaml:"proxy_charset"`
-	Nodes   []NodeConfig `yaml:"nodes"`
+	Charset string     `yaml:"proxy_charset"`
+	Node    NodeConfig `yaml:"node"`
 }
 
-//node节点对应的配置
+//NodeConfig node节点对应的配置
 type NodeConfig struct {
 	Name       string `yaml:"name"`
 	MaxConnNum int    `yaml:"max_conns_limit"`
@@ -42,6 +42,7 @@ type NodeConfig struct {
 	Address string `yaml:"address"`
 }
 
+// ParseConfigData parse config data
 func ParseConfigData(data []byte) (*Config, error) {
 	var cfg Config
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
@@ -50,6 +51,7 @@ func ParseConfigData(data []byte) (*Config, error) {
 	return &cfg, nil
 }
 
+// ParseConfigFile parse config file
 func ParseConfigFile(fileName string) (*Config, error) {
 	data, err := ioutil.ReadFile(fileName)
 	if err != nil {
@@ -61,6 +63,7 @@ func ParseConfigFile(fileName string) (*Config, error) {
 	return ParseConfigData(data)
 }
 
+// WriteConfigFile write config file
 func WriteConfigFile(cfg *Config) error {
 	data, err := yaml.Marshal(cfg)
 	if err != nil {
