@@ -10,7 +10,7 @@ import (
 func newTestConn() *Conn {
 	c := new(Conn)
 
-	if err := c.Connect("127.0.0.1:3306", "root", "rootkit", "testDB"); err != nil {
+	if err := c.Connect("127.0.0.1:3308", "magicbatis", "magicbatis", "testDB"); err != nil {
 		panic(err)
 	}
 
