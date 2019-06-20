@@ -20,6 +20,7 @@ const (
 	PingPeroid        int64 = 4
 )
 
+// DB database define
 type DB struct {
 	sync.RWMutex
 
@@ -40,7 +41,8 @@ type DB struct {
 	popConnCount  int64
 }
 
-func Open(addr string, user string, password string, dbName string, maxConnNum int) (*DB, error) {
+// Open open database
+func Open(addr, user, password, dbName string, maxConnNum int) (*DB, error) {
 	var err error
 	db := new(DB)
 	db.addr = addr
@@ -87,7 +89,7 @@ func Open(addr string, user string, password string, dbName string, maxConnNum i
 			atomic.AddInt64(&db.pushConnCount, 1)
 		}
 	}
-	db.SetLastPing()
+	db.setLastPing()
 
 	return db, nil
 }
@@ -105,10 +107,12 @@ func (db *DB) newCheckConn(conn *Conn) {
 	}()
 }
 
+// Addr get database address
 func (db *DB) Addr() string {
 	return db.addr
 }
 
+//State get database status
 func (db *DB) State() string {
 	var state string
 	switch db.state {
@@ -122,12 +126,14 @@ func (db *DB) State() string {
 	return state
 }
 
+// ConnCount get connection count
 func (db *DB) ConnCount() (int, int, int64, int64) {
 	db.RLock()
 	defer db.RUnlock()
 	return len(db.idleConns), len(db.cacheConns), db.pushConnCount, db.popConnCount
 }
 
+// Close close database
 func (db *DB) Close() error {
 	db.Lock()
 	idleChannel := db.idleConns
@@ -170,6 +176,7 @@ func (db *DB) getIdleConns() chan *Conn {
 	return conns
 }
 
+// Ping ping database
 func (db *DB) Ping() error {
 	var err error
 	if db.checkConn == nil {
@@ -266,6 +273,7 @@ func (db *DB) tryReuse(co *Conn) error {
 	return nil
 }
 
+// PopConn pop database connection
 func (db *DB) PopConn() (*Conn, error) {
 	var co *Conn
 	var err error
@@ -274,9 +282,9 @@ func (db *DB) PopConn() (*Conn, error) {
 	if cacheConns == nil || idleConns == nil {
 		return nil, errors.ErrDatabaseClose
 	}
-	co = db.GetConnFromCache(cacheConns)
+	co = db.getConnFromCache(cacheConns)
 	if co == nil {
-		co, err = db.GetConnFromIdle(cacheConns, idleConns)
+		co, err = db.getConnFromIdle(cacheConns, idleConns)
 		if err != nil {
 			return nil, err
 		}
@@ -294,7 +302,8 @@ func (db *DB) PopConn() (*Conn, error) {
 	return co, nil
 }
 
-func (db *DB) GetConnFromCache(cacheConns chan *Conn) *Conn {
+// getConnFromCache get connection from cache
+func (db *DB) getConnFromCache(cacheConns chan *Conn) *Conn {
 	var co *Conn
 	var err error
 	for 0 < len(cacheConns) {
@@ -313,7 +322,8 @@ func (db *DB) GetConnFromCache(cacheConns chan *Conn) *Conn {
 	return co
 }
 
-func (db *DB) GetConnFromIdle(cacheConns, idleConns chan *Conn) (*Conn, error) {
+// getConnFromIdle get connection from idle
+func (db *DB) getConnFromIdle(cacheConns, idleConns chan *Conn) (*Conn, error) {
 	var co *Conn
 	var err error
 	select {
@@ -339,6 +349,7 @@ func (db *DB) GetConnFromIdle(cacheConns, idleConns chan *Conn) (*Conn, error) {
 	return co, nil
 }
 
+// PushConn push connection
 func (db *DB) PushConn(co *Conn, err error) {
 	if co == nil {
 		return
@@ -364,11 +375,13 @@ func (db *DB) PushConn(co *Conn, err error) {
 	}
 }
 
+// BackendConn backend connection
 type BackendConn struct {
 	*Conn
 	db *DB
 }
 
+// Close close backend connection
 func (p *BackendConn) Close() {
 	if p != nil && p.Conn != nil {
 		if p.Conn.pkgErr != nil {
@@ -380,6 +393,7 @@ func (p *BackendConn) Close() {
 	}
 }
 
+// GetConn get connection
 func (db *DB) GetConn() (*BackendConn, error) {
 	c, err := db.PopConn()
 	if err != nil {
@@ -388,10 +402,10 @@ func (db *DB) GetConn() (*BackendConn, error) {
 	return &BackendConn{c, db}, nil
 }
 
-func (db *DB) SetLastPing() {
+func (db *DB) setLastPing() {
 	db.lastPing = time.Now().Unix()
 }
 
-func (db *DB) GetLastPing() int64 {
+func (db *DB) getLastPing() int64 {
 	return db.lastPing
 }

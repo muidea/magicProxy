@@ -8,6 +8,7 @@ import (
 	"github.com/muidea/magicProxy/mysql"
 )
 
+//Stmt stmt define
 type Stmt struct {
 	conn  *Conn
 	id    uint32
@@ -17,18 +18,22 @@ type Stmt struct {
 	columns int
 }
 
+// ParamNum param numbers
 func (s *Stmt) ParamNum() int {
 	return s.params
 }
 
+// ColumnNum column numbers
 func (s *Stmt) ColumnNum() int {
 	return s.columns
 }
 
-func (s *Stmt) GetId() uint32 {
+// GetID get id
+func (s *Stmt) GetID() uint32 {
 	return s.id
 }
 
+// Execute execute stmt
 func (s *Stmt) Execute(args ...interface{}) (*mysql.Result, error) {
 	if err := s.write(args...); err != nil {
 		return nil, err
@@ -37,6 +42,7 @@ func (s *Stmt) Execute(args ...interface{}) (*mysql.Result, error) {
 	return s.conn.readResult(true)
 }
 
+// Close close  stmt
 func (s *Stmt) Close() error {
 	if err := s.conn.writeCommandUint32(mysql.COM_STMT_CLOSE, s.id); err != nil {
 		return err
@@ -58,9 +64,9 @@ func (s *Stmt) write(args ...interface{}) error {
 	//NULL-bitmap, length: (num-params+7)
 	nullBitmap := make([]byte, (paramsNum+7)>>3)
 
-	var length int = int(1 + 4 + 1 + 4 + ((paramsNum + 7) >> 3) + 1 + (paramsNum << 1))
+	var length = int(1 + 4 + 1 + 4 + ((paramsNum + 7) >> 3) + 1 + (paramsNum << 1))
 
-	var newParamBoundFlag byte = 0
+	var newParamBoundFlag = byte(0)
 
 	for i := range args {
 		if args[i] == nil {
@@ -167,6 +173,7 @@ func (s *Stmt) write(args ...interface{}) error {
 	return s.conn.writePacket(data)
 }
 
+// Prepare prepare stmt
 func (c *Conn) Prepare(query string) (*Stmt, error) {
 	if err := c.writeCommandStr(mysql.COM_STMT_PREPARE, query); err != nil {
 		return nil, err

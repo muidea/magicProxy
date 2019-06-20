@@ -10,6 +10,7 @@ import (
 	"github.com/muidea/magicProxy/core/golog"
 )
 
+// Node backend node
 type Node struct {
 	Cfg config.NodeConfig
 
@@ -19,6 +20,7 @@ type Node struct {
 	Online bool
 }
 
+// CheckNode check node status
 func (n *Node) CheckNode() {
 	//to do
 	//1 check connection alive
@@ -32,6 +34,7 @@ func (n *Node) String() string {
 	return n.Cfg.Name
 }
 
+// GetConn get connection
 func (n *Node) GetConn() (*BackendConn, error) {
 	db := n.Database
 	if db == nil {

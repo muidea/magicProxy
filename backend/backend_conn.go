@@ -16,7 +16,7 @@ var (
 	pingPeriod = int64(time.Second * 16)
 )
 
-//proxy <-> mysql server
+// Conn proxy <-> mysql server
 type Conn struct {
 	conn net.Conn
 
@@ -40,7 +40,8 @@ type Conn struct {
 	pkgErr        error
 }
 
-func (c *Conn) Connect(addr string, user string, password string, db string) error {
+// Connect connect db
+func (c *Conn) Connect(addr, user, password, db string) error {
 	c.addr = addr
 	c.user = user
 	c.password = password
@@ -53,6 +54,7 @@ func (c *Conn) Connect(addr string, user string, password string, db string) err
 	return c.ReConnect()
 }
 
+// ReConnect ReConnect db
 func (c *Conn) ReConnect() error {
 	if c.conn != nil {
 		c.conn.Close()
@@ -109,6 +111,7 @@ func (c *Conn) ReConnect() error {
 	return nil
 }
 
+// Close close connection
 func (c *Conn) Close() error {
 	if c.conn != nil {
 		c.conn.Close()
@@ -164,7 +167,7 @@ func (c *Conn) readInitialHandshake() error {
 	if len(data) > pos {
 		//skip server charset
 		//c.charset = data[pos]
-		pos += 1
+		pos++
 
 		c.status = binary.LittleEndian.Uint16(data[pos : pos+2])
 		pos += 2
@@ -328,6 +331,7 @@ func (c *Conn) writeCommandStrStr(command byte, arg1 string, arg2 string) error 
 	return c.writePacket(data)
 }
 
+// Ping ping database
 func (c *Conn) Ping() error {
 	if err := c.writeCommand(mysql.COM_PING); err != nil {
 		return err
@@ -342,6 +346,7 @@ func (c *Conn) Ping() error {
 	return nil
 }
 
+// UseDB use database
 func (c *Conn) UseDB(dbName string) error {
 	if c.db == dbName || len(dbName) == 0 {
 		return nil
@@ -359,48 +364,56 @@ func (c *Conn) UseDB(dbName string) error {
 	return nil
 }
 
+// GetDB get current database
 func (c *Conn) GetDB() string {
 	return c.db
 }
 
+// GetAddr get crrent database address
 func (c *Conn) GetAddr() string {
 	return c.addr
 }
 
+// Execute execute command
 func (c *Conn) Execute(command string, args ...interface{}) (*mysql.Result, error) {
 	if len(args) == 0 {
 		return c.exec(command)
-	} else {
-		if s, err := c.Prepare(command); err != nil {
-			return nil, err
-		} else {
-			var r *mysql.Result
-			r, err = s.Execute(args...)
-			s.Close()
-			return r, err
-		}
 	}
+
+	s, err := c.Prepare(command)
+	if err != nil {
+		return nil, err
+	}
+
+	r, err := s.Execute(args...)
+	s.Close()
+	return r, err
 }
 
+// ClosePrepare close prepare
 func (c *Conn) ClosePrepare(id uint32) error {
 	return c.writeCommandUint32(mysql.COM_STMT_CLOSE, id)
 }
 
+// Begin begin transation
 func (c *Conn) Begin() error {
 	_, err := c.exec("begin")
 	return err
 }
 
+// Commit commit transation
 func (c *Conn) Commit() error {
 	_, err := c.exec("commit")
 	return err
 }
 
+// Rollback rollback transation
 func (c *Conn) Rollback() error {
 	_, err := c.exec("rollback")
 	return err
 }
 
+// SetAutoCommit set auto commit
 func (c *Conn) SetAutoCommit(n uint8) error {
 	if n == 0 {
 		if _, err := c.exec("set autocommit = 0"); err != nil {
@@ -418,6 +431,7 @@ func (c *Conn) SetAutoCommit(n uint8) error {
 	return nil
 }
 
+// SetCharset set charset
 func (c *Conn) SetCharset(charset string, collation mysql.CollationId) error {
 	charset = strings.Trim(charset, "\"'`")
 
@@ -441,13 +455,14 @@ func (c *Conn) SetCharset(charset string, collation mysql.CollationId) error {
 
 	if _, err := c.exec(fmt.Sprintf("SET NAMES %s COLLATE %s", charset, mysql.Collations[collation])); err != nil {
 		return err
-	} else {
-		c.collation = collation
-		c.charset = charset
-		return nil
 	}
+
+	c.collation = collation
+	c.charset = charset
+	return nil
 }
 
+// FieldList get fieldList
 func (c *Conn) FieldList(table string, wildcard string) ([]*mysql.Field, error) {
 	if err := c.writeCommandStrStr(mysql.COM_FIELD_LIST, table, wildcard); err != nil {
 		return nil, err
@@ -462,24 +477,23 @@ func (c *Conn) FieldList(table string, wildcard string) ([]*mysql.Field, error) 
 	var f *mysql.Field
 	if data[0] == mysql.ERR_HEADER {
 		return nil, c.handleErrorPacket(data)
-	} else {
-		for {
-			if data, err = c.readPacket(); err != nil {
-				return nil, err
-			}
-
-			// EOF Packet
-			if c.isEOFPacket(data) {
-				return fs, nil
-			}
-
-			if f, err = mysql.FieldData(data).Parse(); err != nil {
-				return nil, err
-			}
-			fs = append(fs, f)
-		}
 	}
-	return nil, fmt.Errorf("field list error")
+
+	for {
+		if data, err = c.readPacket(); err != nil {
+			return nil, err
+		}
+
+		// EOF Packet
+		if c.isEOFPacket(data) {
+			return fs, nil
+		}
+
+		if f, err = mysql.FieldData(data).Parse(); err != nil {
+			return nil, err
+		}
+		fs = append(fs, f)
+	}
 }
 
 func (c *Conn) exec(query string) (*mysql.Result, error) {
@@ -521,7 +535,7 @@ func (c *Conn) readResultset(data []byte, binary bool) (*mysql.Result, error) {
 }
 
 func (c *Conn) readResultColumns(result *mysql.Result) (err error) {
-	var i int = 0
+	var i = int(0)
 	var data []byte
 
 	for {
@@ -610,7 +624,6 @@ func (c *Conn) readUntilEOF() (err error) {
 			return
 		}
 	}
-	return
 }
 
 func (c *Conn) isEOFPacket(data []byte) bool {
@@ -619,7 +632,7 @@ func (c *Conn) isEOFPacket(data []byte) bool {
 
 func (c *Conn) handleOKPacket(data []byte) (*mysql.Result, error) {
 	var n int
-	var pos int = 1
+	var pos = int(1)
 
 	r := new(mysql.Result)
 
@@ -649,7 +662,7 @@ func (c *Conn) handleOKPacket(data []byte) (*mysql.Result, error) {
 func (c *Conn) handleErrorPacket(data []byte) error {
 	e := new(mysql.SqlError)
 
-	var pos int = 1
+	var pos = int(1)
 
 	e.Code = binary.LittleEndian.Uint16(data[pos:])
 	pos += 2
@@ -698,14 +711,17 @@ func (c *Conn) readResult(binary bool) (*mysql.Result, error) {
 	return c.readResultset(data, binary)
 }
 
+// IsAutoCommit is autoCommit
 func (c *Conn) IsAutoCommit() bool {
 	return c.status&mysql.SERVER_STATUS_AUTOCOMMIT > 0
 }
 
+//IsInTransaction is intransaction
 func (c *Conn) IsInTransaction() bool {
 	return c.status&mysql.SERVER_STATUS_IN_TRANS > 0
 }
 
+//GetCharset get charset
 func (c *Conn) GetCharset() string {
 	return c.charset
 }

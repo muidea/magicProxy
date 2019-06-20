@@ -83,7 +83,7 @@ func (c *ClientConn) handleStmtPrepare(sql string) error {
 	s.ResetParams()
 	c.stmts[s.id] = s
 
-	err = co.ClosePrepare(t.GetId())
+	err = co.ClosePrepare(t.GetID())
 	if err != nil {
 		return err
 	}
