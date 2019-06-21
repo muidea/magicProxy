@@ -1,11 +1,10 @@
 package server
 
-import (
-	"github.com/muidea/magicProxy/mysql"
-)
-
 func (c *ClientConn) handleBegin() error {
-	c.status |= mysql.SERVER_STATUS_IN_TRANS
+	if err := c.begin(); err != nil {
+		return err
+	}
+
 	return c.writeOK(nil)
 }
 
