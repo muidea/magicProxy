@@ -14,12 +14,6 @@ import (
 	"github.com/muidea/magicProxy/core/golog"
 )
 
-const (
-	Offline = iota
-	Online
-	Unknown
-)
-
 func parseNode(cfg config.NodeConfig) (*backend.Node, error) {
 	n := new(backend.Node)
 	n.Cfg = cfg
@@ -35,9 +29,6 @@ type Server struct {
 	cfg  *config.Config
 	addr string
 
-	statusIndex int32
-	status      [2]int32
-
 	databaseNode *backend.Node
 
 	listener net.Listener
@@ -50,9 +41,6 @@ func NewServer(cfg *config.Config) (*Server, error) {
 
 	s.cfg = cfg
 	s.addr = cfg.Addr
-
-	atomic.StoreInt32(&s.statusIndex, 0)
-	s.status[s.statusIndex] = Online
 
 	if len(cfg.Charset) == 0 {
 		cfg.Charset = mysql.DEFAULT_CHARSET //utf8
