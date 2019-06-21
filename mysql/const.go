@@ -1,4 +1,3 @@
-
 package mysql
 
 const (
@@ -191,8 +190,10 @@ var (
 	TK_STR_INTO   = "into"
 	TK_STR_SET    = "set"
 
+	TK_STR_CHARACTER      = "character"
 	TK_STR_TRANSACTION    = "transaction"
 	TK_STR_LAST_INSERT_ID = "last_insert_id()"
+	TK_STR_CURRENT_USER   = "current_user()"
 	TK_STR_MASTER_HINT    = "*master*"
 	//show
 	TK_STR_COLUMNS = "columns"

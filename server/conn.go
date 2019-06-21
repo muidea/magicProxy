@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"log"
 	"net"
 	"runtime"
 	"sync"
@@ -269,6 +270,8 @@ func (c *ClientConn) dispatch(data []byte) error {
 	c.proxy.counter.IncrClientQPS()
 	cmd := data[0]
 	data = data[1:]
+
+	log.Printf("sql:%s", hack.String(data))
 
 	switch cmd {
 	case mysql.COM_QUIT:
