@@ -194,6 +194,7 @@ var (
 	TK_STR_TRANSACTION    = "transaction"
 	TK_STR_LAST_INSERT_ID = "last_insert_id()"
 	TK_STR_CURRENT_USER   = "current_user()"
+	TK_STR_CONNECTION_ID  = "connection_id()"
 	TK_STR_MASTER_HINT    = "*master*"
 	//show
 	TK_STR_COLUMNS = "columns"

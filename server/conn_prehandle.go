@@ -1,7 +1,6 @@
 package server
 
 import (
-	"log"
 	"strings"
 
 	"github.com/muidea/magicProxy/core/errors"
@@ -70,10 +69,9 @@ func (c *ClientConn) handleSQL(tokens []string, sql string) (bool, error) {
 
 //get the execute database for select sql
 func (c *ClientConn) handleSelectToken(sql string, tokens []string, tokensLen int) (bool, error) {
-	log.Print(tokens)
-
 	selectLastInsertID := false
 	selectCurrentUser := false
+	selectConnectionID := false
 	for i := 1; i < tokensLen; i++ {
 		if strings.ToLower(tokens[i]) == mysql.TK_STR_LAST_INSERT_ID {
 			selectLastInsertID = true
@@ -81,9 +79,12 @@ func (c *ClientConn) handleSelectToken(sql string, tokens []string, tokensLen in
 		if strings.ToLower(tokens[i]) == mysql.TK_STR_CURRENT_USER {
 			selectCurrentUser = true
 		}
+		if strings.ToLower(tokens[i]) == mysql.TK_STR_CONNECTION_ID {
+			selectConnectionID = true
+		}
 	}
 
-	if selectLastInsertID || selectCurrentUser {
+	if selectLastInsertID || selectCurrentUser || selectConnectionID {
 		err := c.executeSQL(sql)
 		return true, err
 	}
@@ -108,6 +109,7 @@ func (c *ClientConn) handleUpdateToken(sql string, tokens []string, tokensLen in
 
 //get the execute database for set sql
 func (c *ClientConn) handleSetToken(sql string, tokens []string, tokensLen int) (bool, error) {
+
 	//handle three styles:
 	//set autocommit= 0
 	//set autocommit = 0
@@ -117,6 +119,7 @@ func (c *ClientConn) handleSetToken(sql string, tokens []string, tokensLen int) 
 		//uncleanWorld is 'autocommit' or 'autocommit '
 		uncleanWord := strings.Split(before[0], " ")
 		secondWord := strings.ToLower(uncleanWord[1])
+
 		if _, ok := mysql.SET_KEY_WORDS[secondWord]; ok {
 			return false, nil
 		}
@@ -126,6 +129,11 @@ func (c *ClientConn) handleSetToken(sql string, tokens []string, tokensLen int) 
 		if 3 <= len(uncleanWord) {
 			if strings.ToLower(uncleanWord[1]) == mysql.TK_STR_TRANSACTION ||
 				strings.ToLower(uncleanWord[2]) == mysql.TK_STR_TRANSACTION {
+				return false, errors.ErrIgnoreSQL
+			}
+
+			if strings.ToLower(uncleanWord[1]) == mysql.TK_STR_CHARACTER ||
+				strings.ToLower(uncleanWord[2]) == mysql.TK_STR_CHARACTER {
 				return false, errors.ErrIgnoreSQL
 			}
 		}
