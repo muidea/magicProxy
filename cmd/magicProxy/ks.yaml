@@ -14,9 +14,9 @@ node :
 
     # all mysql in a node must have the same user and password
     user :  root
-    password : flike
+    password : rootkit
 
     # master represents a real mysql master server
-    master : 127.0.0.1:3306
+    address : 127.0.0.1:3306
 
     down_after_noalive : 32

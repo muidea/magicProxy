@@ -35,11 +35,19 @@ func (c *ClientConn) handleQuery(sql string) (err error) {
 	}()
 
 	sql = strings.TrimRight(sql, ";") //删除sql语句最后的分号
+	hasHandled, err := c.preHandle(sql)
+	if err != nil {
+		golog.Error("server", "preHandle", err.Error(), 0, "sql", sql, "hasHandled", hasHandled)
+		return err
+	}
+	if hasHandled {
+		return nil
+	}
 
 	var stmt sqlparser.Statement
 	stmt, err = sqlparser.Parse(sql) //解析sql语句,得到的stmt是一个interface
 	if err != nil {
-		golog.Error("server", "parse", err.Error(), 0, "sql", sql)
+		golog.Error("ClientConn", "Parse", err.Error(), 0, "sql", sql)
 		return err
 	}
 
@@ -76,18 +84,18 @@ func (c *ClientConn) handleQuery(sql string) (err error) {
 func (c *ClientConn) getBackendConn() (co *backend.BackendConn, err error) {
 	bkNode := c.proxy.GetBackendNode()
 	if bkNode == nil {
+		err = fmt.Errorf("nodefine backend node")
+
+		golog.Error("ClientConn", "GetBackendNode", err.Error(), 0)
 		return
 	}
 	co, err = bkNode.GetConn()
-
-	if !c.isInTransaction() {
-		panic("todo")
-	} else {
-		panic("todo")
+	if err != nil {
+		golog.Error("ClientConn", "GetConn", err.Error(), 0)
+		return
 	}
 
 	if err = co.UseDB(c.db); err != nil {
-		//reset the database to null
 		c.db = ""
 		return
 	}
@@ -109,10 +117,6 @@ func (c *ClientConn) executeInNode(conn *backend.BackendConn, sql string, args [
 }
 
 func (c *ClientConn) closeConn(conn *backend.BackendConn, rollback bool) {
-	if c.isInTransaction() {
-		return
-	}
-
 	if rollback {
 		conn.Rollback()
 	}
@@ -148,10 +152,6 @@ func (c *ClientConn) newEmptyResultset(stmt *sqlparser.Select) *mysql.Resultset 
 }
 
 func (c *ClientConn) handleExec(stmt sqlparser.Statement, args []interface{}) error {
-	//plan, err := c.schema.rule.BuildPlan(c.db, stmt)
-	//if err != nil {
-	//	return err
-	//}
 	conns, err := c.getBackendConn()
 	defer c.closeConn(conns, false)
 	if err != nil {
@@ -159,14 +159,14 @@ func (c *ClientConn) handleExec(stmt sqlparser.Statement, args []interface{}) er
 		return err
 	}
 	if conns == nil {
-		return c.writeOK(nil)
+		err = fmt.Errorf("can't get backend connection")
+		golog.Error("ClientConn", "handleExec", err.Error(), c.connectionID)
+		return err
 	}
 
-	// panic("todo")
 	rs, err := c.executeInNode(conns, "sql", args)
 	if err == nil {
 		return c.writeOK(rs)
-		//err = c.mergeExecResult(rs)
 	}
 
 	return err

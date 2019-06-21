@@ -66,6 +66,10 @@ func (n *Node) checkStatus() {
 
 func (n *Node) openDB(addr string) (*DB, error) {
 	db, err := Open(addr, n.Cfg.User, n.Cfg.Password, "", n.Cfg.MaxConnNum)
+	if err != nil {
+		golog.Error("Node", "openDB", "Open", 0, "addr", addr, "name", n.Cfg.User, "password", n.Cfg.Password, "error", err.Error())
+	}
+
 	return db, err
 }
 
