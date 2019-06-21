@@ -5,7 +5,6 @@ import (
 	"net"
 	"runtime"
 	"sync/atomic"
-	"time"
 
 	"github.com/muidea/magicProxy/backend"
 	"github.com/muidea/magicProxy/mysql"
@@ -39,8 +38,6 @@ type Server struct {
 	statusIndex int32
 	status      [2]int32
 
-	counter *Counter
-
 	databaseNode *backend.Node
 
 	listener net.Listener
@@ -52,7 +49,6 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	s := new(Server)
 
 	s.cfg = cfg
-	s.counter = new(Counter)
 	s.addr = cfg.Addr
 
 	atomic.StoreInt32(&s.statusIndex, 0)
@@ -85,13 +81,6 @@ func NewServer(cfg *config.Config) (*Server, error) {
 		"address",
 		s.addr)
 	return s, nil
-}
-
-func (s *Server) flushCounter() {
-	for {
-		s.counter.FlushCounter()
-		time.Sleep(1 * time.Second)
-	}
 }
 
 func (s *Server) newClientConn(co net.Conn) *ClientConn {
@@ -129,7 +118,6 @@ func (s *Server) newClientConn(co net.Conn) *ClientConn {
 }
 
 func (s *Server) onConn(c net.Conn) {
-	s.counter.IncrClientConns()
 	conn := s.newClientConn(c) //新建一个conn
 
 	defer func() {
@@ -145,7 +133,6 @@ func (s *Server) onConn(c net.Conn) {
 		}
 
 		conn.Close()
-		s.counter.DecrClientConns()
 	}()
 
 	if err := conn.Handshake(); err != nil {
@@ -161,9 +148,6 @@ func (s *Server) onConn(c net.Conn) {
 // Run run server
 func (s *Server) Run() error {
 	s.running = true
-
-	// flush counter
-	go s.flushCounter()
 
 	for s.running {
 		conn, err := s.listener.Accept()

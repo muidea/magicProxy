@@ -16,8 +16,8 @@ func TestConn_Handshake(t *testing.T) {
 
 func TestConn_DeleteTable(t *testing.T) {
 	server := newTestServer(t)
-	n := server.nodes["node1"]
-	c, err := n.GetMasterConn()
+	n := server.databaseNode
+	c, err := n.GetConn()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,8 +42,8 @@ func TestConn_CreateTable(t *testing.T) {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8`
 
 	server := newTestServer(t)
-	n := server.nodes["node1"]
-	c, err := n.GetMasterConn()
+	n := server.databaseNode
+	c, err := n.GetConn()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -198,20 +198,13 @@ func TestConn_SetAutoCommit(t *testing.T) {
 	c := newTestDBConn(t)
 	defer c.Close()
 
-	if r, err := c.Execute("set autocommit = 1"); err != nil {
+	_, err := c.Execute("set autocommit = 1")
+	if err != nil {
 		t.Fatal(err)
-	} else {
-		if !(r.Status&SERVER_STATUS_AUTOCOMMIT > 0) {
-			t.Fatal(r.Status)
-		}
 	}
 
-	if r, err := c.Execute("set autocommit = 0"); err != nil {
+	if _, err := c.Execute("set autocommit = 0"); err != nil {
 		t.Fatal(err)
-	} else {
-		if !(r.Status&SERVER_STATUS_AUTOCOMMIT == 0) {
-			t.Fatal(r.Status)
-		}
 	}
 }
 
@@ -282,9 +275,8 @@ func TestConn_LastInsertId(t *testing.T) {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8`
 
 	server := newTestServer(t)
-	n := server.nodes["node1"]
-
-	c1, err := n.GetMasterConn()
+	n := server.databaseNode
+	c1, err := n.GetConn()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -306,7 +298,7 @@ func TestConn_LastInsertId(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	lastId := r.InsertId
+	lastID := r.InsertId
 	if r, err := c.Execute(`select last_insert_id()`); err != nil {
 		t.Fatal(err)
 	} else {
@@ -314,7 +306,7 @@ func TestConn_LastInsertId(t *testing.T) {
 			t.Fatal(r.ColumnNumber())
 		}
 
-		if v, _ := r.GetUint(0, 0); v != lastId {
+		if v, _ := r.GetUint(0, 0); v != lastID {
 			t.Fatal(v)
 		}
 	}
@@ -326,12 +318,12 @@ func TestConn_LastInsertId(t *testing.T) {
 			t.Fatal(string(r.Fields[0].Name))
 		}
 
-		if v, _ := r.GetUint(0, 0); v != lastId {
+		if v, _ := r.GetUint(0, 0); v != lastID {
 			t.Fatal(v)
 		}
 	}
 
-	c1, _ = n.GetMasterConn()
+	c1, _ = n.GetConn()
 	err = c1.UseDB("kingshard")
 	if err != nil {
 		t.Fatal(err)

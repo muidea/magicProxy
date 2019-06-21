@@ -6,8 +6,8 @@ import (
 
 func TestStmt_DropTable(t *testing.T) {
 	server := newTestServer(t)
-	n := server.nodes["node1"]
-	c, err := n.GetMasterConn()
+	n := server.databaseNode
+	c, err := n.GetConn()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,8 +30,8 @@ func TestStmt_CreateTable(t *testing.T) {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8`
 
 	server := newTestServer(t)
-	n := server.nodes["node1"]
-	c, err := n.GetMasterConn()
+	n := server.databaseNode
+	c, err := n.GetConn()
 	if err != nil {
 		t.Fatal(err)
 	}

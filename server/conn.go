@@ -248,7 +248,6 @@ func (c *ClientConn) Run() {
 
 		err = c.dispatch(data)
 		if err != nil {
-			c.proxy.counter.IncrErrLogTotal()
 			golog.Error("ClientConn", "Run",
 				err.Error(), c.connectionID,
 			)
@@ -267,7 +266,6 @@ func (c *ClientConn) Run() {
 }
 
 func (c *ClientConn) dispatch(data []byte) error {
-	c.proxy.counter.IncrClientQPS()
 	cmd := data[0]
 	data = data[1:]
 
@@ -303,8 +301,6 @@ func (c *ClientConn) dispatch(data []byte) error {
 		golog.Error("ClientConn", "dispatch", msg, 0)
 		return mysql.NewError(mysql.ER_UNKNOWN_ERROR, msg)
 	}
-
-	return nil
 }
 
 func (c *ClientConn) writeOK(r *mysql.Result) error {

@@ -77,8 +77,6 @@ func (c *ClientConn) handleQuery(sql string) (err error) {
 	default:
 		return fmt.Errorf("statement %T not support now", stmt)
 	}
-
-	return nil
 }
 
 func (c *ClientConn) getBackendConn() (co *backend.BackendConn, err error) {
