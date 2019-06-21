@@ -14,12 +14,7 @@ func (c *ClientConn) preHandle(sql string) (bool, error) {
 		return false, errors.ErrCmdUnsupport
 	}
 
-	tokens := strings.FieldsFunc(sql, hack.IsSqlSep)
-	if len(tokens) == 0 {
-		return false, errors.ErrCmdUnsupport
-	}
-
-	handle, err := c.handleSQL(tokens, sql)
+	handle, err := c.handleSQL(sql)
 	if err != nil {
 		//this SQL doesn't need execute in the backend.
 		if err == errors.ErrIgnoreSQL {
@@ -29,15 +24,18 @@ func (c *ClientConn) preHandle(sql string) (bool, error) {
 			}
 			return true, nil
 		}
-
-		return false, err
 	}
 
-	return handle, nil
+	return handle, err
 }
 
 //if sql need shard return nil, else return the unshard db
-func (c *ClientConn) handleSQL(tokens []string, sql string) (bool, error) {
+func (c *ClientConn) handleSQL(sql string) (bool, error) {
+	tokens := strings.FieldsFunc(sql, hack.IsSqlSep)
+	if len(tokens) == 0 {
+		return false, errors.ErrCmdUnsupport
+	}
+
 	tokensLen := len(tokens)
 	if 0 < tokensLen {
 		tokenID, ok := mysql.PARSE_TOKEN_MAP[strings.ToLower(tokens[0])]
@@ -68,42 +66,51 @@ func (c *ClientConn) handleSQL(tokens []string, sql string) (bool, error) {
 
 //get the execute database for select sql
 func (c *ClientConn) handleSelectToken(sql string, tokens []string, tokensLen int) (bool, error) {
-	selectLastInsertID := false
-	selectCurrentUser := false
-	selectConnectionID := false
-	for i := 1; i < tokensLen; i++ {
-		if strings.ToLower(tokens[i]) == mysql.TK_STR_LAST_INSERT_ID {
-			selectLastInsertID = true
-		}
-		if strings.ToLower(tokens[i]) == mysql.TK_STR_CURRENT_USER {
-			selectCurrentUser = true
-		}
-		if strings.ToLower(tokens[i]) == mysql.TK_STR_CONNECTION_ID {
-			selectConnectionID = true
-		}
-	}
 
-	if selectLastInsertID || selectCurrentUser || selectConnectionID {
-		err := c.executeSQL(sql)
-		return true, err
-	}
+	err := c.executeSQL(sql)
+	return true, err
 
-	return false, nil
+	/*
+		selectLastInsertID := false
+		selectCurrentUser := false
+		selectConnectionID := false
+		for i := 1; i < tokensLen; i++ {
+			if strings.ToLower(tokens[i]) == mysql.TK_STR_LAST_INSERT_ID {
+				selectLastInsertID = true
+			}
+			if strings.ToLower(tokens[i]) == mysql.TK_STR_CURRENT_USER {
+				selectCurrentUser = true
+			}
+			if strings.ToLower(tokens[i]) == mysql.TK_STR_CONNECTION_ID {
+				selectConnectionID = true
+			}
+		}
+
+		if selectLastInsertID || selectCurrentUser || selectConnectionID {
+			err := c.executeSQL(sql)
+			return true, err
+		}
+
+		return false, nil
+	*/
 }
 
 //get the execute database for delete sql
 func (c *ClientConn) handleDeleteToken(sql string, tokens []string, tokensLen int) (bool, error) {
-	return false, nil
+	err := c.executeSQL(sql)
+	return true, err
 }
 
 //get the execute database for insert or replace sql
 func (c *ClientConn) handleInsertOrReplaceToken(sql string, tokens []string, tokensLen int) (bool, error) {
-	return false, nil
+	err := c.executeSQL(sql)
+	return true, err
 }
 
 //get the execute database for update sql
 func (c *ClientConn) handleUpdateToken(sql string, tokens []string, tokensLen int) (bool, error) {
-	return false, nil
+	err := c.executeSQL(sql)
+	return true, err
 }
 
 //get the execute database for set sql
@@ -152,7 +159,8 @@ func (c *ClientConn) handleShowToken(sql string, tokens []string, tokensLen int)
 //get the execute database for truncate sql
 //sql: TRUNCATE [TABLE] tbl_name
 func (c *ClientConn) handleTruncateToken(sql string, tokens []string, tokensLen int) (bool, error) {
-	return false, nil
+	err := c.executeSQL(sql)
+	return true, err
 }
 
 func (c *ClientConn) executeSQL(sql string) error {
