@@ -7,7 +7,6 @@ import (
 	"log"
 	"net"
 	"runtime"
-	"sync"
 
 	"github.com/muidea/magicProxy/core/golog"
 	"github.com/muidea/magicProxy/core/hack"
@@ -16,7 +15,7 @@ import (
 
 // ClientConn client <-> proxy
 type ClientConn struct {
-	sync.Mutex
+	//sync.Mutex
 
 	pkg *mysql.PacketIO
 
@@ -38,8 +37,6 @@ type ClientConn struct {
 	salt []byte
 
 	closed bool
-
-	affectedRows int64
 
 	stmtID uint32
 

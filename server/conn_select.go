@@ -35,7 +35,6 @@ func (c *ClientConn) handleFieldList(data []byte) error {
 }
 
 func (c *ClientConn) writeFieldList(status uint16, fs []*mysql.Field) error {
-	c.affectedRows = int64(-1)
 	var err error
 	total := make([]byte, 0, 1024)
 	data := make([]byte, 4, 512)

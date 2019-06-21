@@ -15,7 +15,6 @@ func (c *ClientConn) preHandle(sql string) (bool, error) {
 	}
 
 	tokens := strings.FieldsFunc(sql, hack.IsSqlSep)
-
 	if len(tokens) == 0 {
 		return false, errors.ErrCmdUnsupport
 	}
