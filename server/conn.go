@@ -3,7 +3,6 @@ package server
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"log"
 	"net"
 	"runtime"
@@ -263,41 +262,45 @@ func (c *ClientConn) Run() {
 }
 
 func (c *ClientConn) dispatch(data []byte) error {
-	cmd := data[0]
+	//cmd := data[0]
 	data = data[1:]
 
 	log.Printf("sql:%s", hack.String(data))
 
-	switch cmd {
-	case mysql.COM_QUIT:
-		c.handleRollback()
-		c.Close()
-		return nil
-	case mysql.COM_QUERY:
-		return c.handleQuery(hack.String(data))
-	case mysql.COM_PING:
-		return c.writeOK(nil)
-	case mysql.COM_INIT_DB:
-		return c.handleUseDB(hack.String(data))
-	case mysql.COM_FIELD_LIST:
-		return c.handleFieldList(data)
-	case mysql.COM_STMT_PREPARE:
-		return c.handleStmtPrepare(hack.String(data))
-	case mysql.COM_STMT_EXECUTE:
-		return c.handleStmtExecute(data)
-	case mysql.COM_STMT_CLOSE:
-		return c.handleStmtClose(data)
-	case mysql.COM_STMT_SEND_LONG_DATA:
-		return c.handleStmtSendLongData(data)
-	case mysql.COM_STMT_RESET:
-		return c.handleStmtReset(data)
-	case mysql.COM_SET_OPTION:
-		return c.writeEOF(0)
-	default:
-		msg := fmt.Sprintf("command %d not supported now", cmd)
-		golog.Error("ClientConn", "dispatch", msg, 0)
-		return mysql.NewError(mysql.ER_UNKNOWN_ERROR, msg)
-	}
+	return c.executeSQL(hack.String(data))
+
+	/*
+		switch cmd {
+		case mysql.COM_QUIT:
+			c.handleRollback()
+			c.Close()
+			return nil
+		case mysql.COM_QUERY:
+			return c.handleQuery(hack.String(data))
+		case mysql.COM_PING:
+			return c.writeOK(nil)
+		case mysql.COM_INIT_DB:
+			return c.handleUseDB(hack.String(data))
+		case mysql.COM_FIELD_LIST:
+			return c.handleFieldList(data)
+		case mysql.COM_STMT_PREPARE:
+			return c.handleStmtPrepare(hack.String(data))
+		case mysql.COM_STMT_EXECUTE:
+			return c.handleStmtExecute(data)
+		case mysql.COM_STMT_CLOSE:
+			return c.handleStmtClose(data)
+		case mysql.COM_STMT_SEND_LONG_DATA:
+			return c.handleStmtSendLongData(data)
+		case mysql.COM_STMT_RESET:
+			return c.handleStmtReset(data)
+		case mysql.COM_SET_OPTION:
+			return c.writeEOF(0)
+		default:
+			msg := fmt.Sprintf("command %d not supported now", cmd)
+			golog.Error("ClientConn", "dispatch", msg, 0)
+			return mysql.NewError(mysql.ER_UNKNOWN_ERROR, msg)
+		}
+	*/
 }
 
 func (c *ClientConn) writeOK(r *mysql.Result) error {

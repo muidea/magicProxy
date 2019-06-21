@@ -52,6 +52,8 @@ func (c *ClientConn) handleQuery(sql string) (err error) {
 	}
 
 	switch v := stmt.(type) {
+	case *sqlparser.DDL:
+		return nil
 	case *sqlparser.Select:
 		return c.handleSelect(v, nil)
 	case *sqlparser.Insert:
