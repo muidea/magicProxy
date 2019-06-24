@@ -275,21 +275,51 @@ func (c *ClientConn) dispatch(data []byte) error {
 	return c.executeSQL(sql)
 }
 
+// Ping
+// UseDB
+
+// Begin
+// Commit
+// Rollback
+
+// Prepare
+// ClosePrepare
+
+// Execute
+
+// SetAutoCommit
+// SetCharset
+// FieldList
 func (c *ClientConn) preHandleSQL(cmd byte, sql string) (ret bool, err error) {
 	switch cmd {
 	case mysql.COM_QUIT:
-		c.handleRollback()
-		c.Close()
-		ret = true
-	case mysql.COM_QUERY:
+		ret, err = c.handleQuit()
 	case mysql.COM_PING:
-		ret = true
-		err = c.writeOK(nil)
+		ret, err = c.handlePing()
 	case mysql.COM_INIT_DB:
-		ret = true
-		err = c.handleUseDB(sql)
+		ret, err = c.handleUseDB(sql)
+	case mysql.COM_QUERY:
+		ret, err = c.handleQuery(sql)
+	case mysql.COM_FIELD_LIST:
+		ret, err = c.handleFieldList(sql)
+	case mysql.COM_STMT_PREPARE:
+		ret, err = c.handleStmtPrepare(sql)
+	case mysql.COM_STMT_EXECUTE:
+		ret, err = c.handleStmtExecute(sql)
+	case mysql.COM_STMT_CLOSE:
+		ret, err = c.handleStmtClose(sql)
+	case mysql.COM_STMT_SEND_LONG_DATA:
+		ret, err = c.handleStmtSendLongData(sql)
+	case mysql.COM_STMT_RESET:
+		ret, err = c.handleStmtReset(sql)
+	case mysql.COM_SET_OPTION:
+		ret, err = c.handleSetOption(sql)
 	default:
+		msg := fmt.Sprintf("command %d not supported now", cmd)
+		golog.Error("ClientConn", "dispatch", msg, 0)
+
 		ret = false
+		err = mysql.NewError(mysql.ER_UNKNOWN_ERROR, msg)
 	}
 
 	return

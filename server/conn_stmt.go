@@ -42,7 +42,7 @@ func (s *Stmt) ResetParams() {
 	s.args = make([]interface{}, s.params)
 }
 
-func (c *ClientConn) handleStmtPrepare(sql string) error {
+func (c *ClientConn) handleStmtPrepare(sql string) (bool, error) {
 	s := new(Stmt)
 
 	sql = strings.TrimRight(sql, ";")
@@ -50,7 +50,7 @@ func (c *ClientConn) handleStmtPrepare(sql string) error {
 	var err error
 	s.s, err = sqlparser.Parse(sql)
 	if err != nil {
-		return fmt.Errorf(`parse sql "%s" error`, sql)
+		return false, fmt.Errorf(`parse sql "%s" error`, sql)
 	}
 
 	s.sql = sql
@@ -58,20 +58,14 @@ func (c *ClientConn) handleStmtPrepare(sql string) error {
 	co, err := c.getBackendConn()
 	defer c.closeConn(co, false)
 	if err != nil {
-		return fmt.Errorf("prepare error %s", err)
-	}
-
-	err = co.UseDB(c.db)
-	if err != nil {
-		//reset the database to null
-		c.db = ""
-		return fmt.Errorf("prepare error %s", err)
+		return false, fmt.Errorf("get backend conn failed, error: %s", err.Error())
 	}
 
 	t, err := co.Prepare(sql)
 	if err != nil {
-		return fmt.Errorf("prepare error %s", err)
+		return true, fmt.Errorf("prepare faield, error: %s", err.Error())
 	}
+
 	s.params = t.ParamNum()
 	s.columns = t.ColumnNum()
 
@@ -79,7 +73,7 @@ func (c *ClientConn) handleStmtPrepare(sql string) error {
 	c.stmtID++
 
 	if err = c.writePrepare(s); err != nil {
-		return err
+		return true, err
 	}
 
 	s.ResetParams()
@@ -87,10 +81,10 @@ func (c *ClientConn) handleStmtPrepare(sql string) error {
 
 	err = co.ClosePrepare(t.GetID())
 	if err != nil {
-		return err
+		return true, err
 	}
 
-	return nil
+	return true, nil
 }
 
 func (c *ClientConn) writePrepare(s *Stmt) error {
@@ -157,9 +151,11 @@ func (c *ClientConn) writePrepare(s *Stmt) error {
 	return nil
 }
 
-func (c *ClientConn) handleStmtExecute(data []byte) error {
+func (c *ClientConn) handleStmtExecute(sql string) (bool, error) {
+	data := []byte(sql)
+
 	if len(data) < 9 {
-		return mysql.ErrMalformPacket
+		return false, mysql.ErrMalformPacket
 	}
 
 	pos := 0
@@ -168,7 +164,7 @@ func (c *ClientConn) handleStmtExecute(data []byte) error {
 
 	s, ok := c.stmts[id]
 	if !ok {
-		return mysql.NewDefaultError(mysql.ER_UNKNOWN_STMT_HANDLER,
+		return false, mysql.NewDefaultError(mysql.ER_UNKNOWN_STMT_HANDLER,
 			strconv.FormatUint(uint64(id), 10), "stmt_execute")
 	}
 
@@ -176,7 +172,7 @@ func (c *ClientConn) handleStmtExecute(data []byte) error {
 	pos++
 	//now we only support CURSOR_TYPE_NO_CURSOR flag
 	if flag != 0 {
-		return mysql.NewError(mysql.ER_UNKNOWN_ERROR, fmt.Sprintf("unsupported flag %d", flag))
+		return false, mysql.NewError(mysql.ER_UNKNOWN_ERROR, fmt.Sprintf("unsupported flag %d", flag))
 	}
 
 	//skip iteration-count, always 1
@@ -191,7 +187,7 @@ func (c *ClientConn) handleStmtExecute(data []byte) error {
 	if paramNum > 0 {
 		nullBitmapLen := (s.params + 7) >> 3
 		if len(data) < (pos + nullBitmapLen + 1) {
-			return mysql.ErrMalformPacket
+			return false, mysql.ErrMalformPacket
 		}
 		nullBitmaps = data[pos : pos+nullBitmapLen]
 		pos += nullBitmapLen
@@ -200,7 +196,7 @@ func (c *ClientConn) handleStmtExecute(data []byte) error {
 		if data[pos] == 1 {
 			pos++
 			if len(data) < (pos + (paramNum << 1)) {
-				return mysql.ErrMalformPacket
+				return false, mysql.ErrMalformPacket
 			}
 
 			paramTypes = data[pos : pos+(paramNum<<1)]
@@ -210,49 +206,43 @@ func (c *ClientConn) handleStmtExecute(data []byte) error {
 		}
 
 		if err := c.bindStmtArgs(s, nullBitmaps, paramTypes, paramValues); err != nil {
-			return err
+			return false, err
 		}
 	}
 
+	var ret bool
 	var err error
 
 	switch stmt := s.s.(type) {
 	case *sqlparser.Select:
-		err = c.handlePrepareSelect(stmt, s.sql, s.args)
+		ret, err = c.handlePrepareSelect(stmt, s.sql, s.args)
 	case *sqlparser.Insert:
-		err = c.handlePrepareExec(s.s, s.sql, s.args)
+		ret, err = c.handlePrepareExec(s.s, s.sql, s.args)
 	case *sqlparser.Update:
-		err = c.handlePrepareExec(s.s, s.sql, s.args)
+		ret, err = c.handlePrepareExec(s.s, s.sql, s.args)
 	case *sqlparser.Delete:
-		err = c.handlePrepareExec(s.s, s.sql, s.args)
+		ret, err = c.handlePrepareExec(s.s, s.sql, s.args)
 	case *sqlparser.Replace:
-		err = c.handlePrepareExec(s.s, s.sql, s.args)
-	default:
-		err = fmt.Errorf("command %T not supported now", stmt)
+		ret, err = c.handlePrepareExec(s.s, s.sql, s.args)
 	}
 
 	s.ResetParams()
 
-	return err
+	return ret, err
 }
 
-func (c *ClientConn) handlePrepareSelect(stmt *sqlparser.Select, sql string, args []interface{}) error {
+func (c *ClientConn) handlePrepareSelect(stmt *sqlparser.Select, sql string, args []interface{}) (bool, error) {
 	//choose connection in slave DB first
 	conn, err := c.getBackendConn()
 	defer c.closeConn(conn, false)
 	if err != nil {
-		return err
-	}
-
-	if conn == nil {
-		r := c.newEmptyResultset(stmt)
-		return c.writeResultset(c.status, r)
+		return false, err
 	}
 
 	rs, err := c.executeInConn(conn, sql, args)
 	if err != nil {
 		golog.Error("ClientConn", "handlePrepareSelect", err.Error(), c.connectionID)
-		return err
+		return false, err
 	}
 
 	status := c.status | rs.Status
@@ -263,19 +253,15 @@ func (c *ClientConn) handlePrepareSelect(stmt *sqlparser.Select, sql string, arg
 		err = c.writeResultset(status, r)
 	}
 
-	return err
+	return false, err
 }
 
-func (c *ClientConn) handlePrepareExec(stmt sqlparser.Statement, sql string, args []interface{}) error {
+func (c *ClientConn) handlePrepareExec(stmt sqlparser.Statement, sql string, args []interface{}) (bool, error) {
 	//execute in Master DB
 	conn, err := c.getBackendConn()
 	defer c.closeConn(conn, false)
 	if err != nil {
-		return err
-	}
-
-	if conn == nil {
-		return c.writeOK(nil)
+		return false, err
 	}
 
 	rs, err := c.executeInConn(conn, sql, args)
@@ -283,7 +269,7 @@ func (c *ClientConn) handlePrepareExec(stmt sqlparser.Statement, sql string, arg
 
 	if err != nil {
 		golog.Error("ClientConn", "handlePrepareExec", err.Error(), c.connectionID)
-		return err
+		return true, err
 	}
 
 	status := c.status | rs.Status
@@ -293,7 +279,7 @@ func (c *ClientConn) handlePrepareExec(stmt sqlparser.Statement, sql string, arg
 		err = c.writeOK(rs)
 	}
 
-	return err
+	return true, err
 }
 
 func (c *ClientConn) bindStmtArgs(s *Stmt, nullBitmap, paramTypes, paramValues []byte) error {
@@ -421,22 +407,23 @@ func (c *ClientConn) bindStmtArgs(s *Stmt, nullBitmap, paramTypes, paramValues [
 	return nil
 }
 
-func (c *ClientConn) handleStmtSendLongData(data []byte) error {
+func (c *ClientConn) handleStmtSendLongData(sql string) (bool, error) {
+	data := []byte(sql)
 	if len(data) < 6 {
-		return mysql.ErrMalformPacket
+		return false, mysql.ErrMalformPacket
 	}
 
 	id := binary.LittleEndian.Uint32(data[0:4])
 
 	s, ok := c.stmts[id]
 	if !ok {
-		return mysql.NewDefaultError(mysql.ER_UNKNOWN_STMT_HANDLER,
+		return false, mysql.NewDefaultError(mysql.ER_UNKNOWN_STMT_HANDLER,
 			strconv.FormatUint(uint64(id), 10), "stmt_send_longdata")
 	}
 
 	paramID := binary.LittleEndian.Uint16(data[4:6])
 	if paramID >= uint16(s.params) {
-		return mysql.NewDefaultError(mysql.ER_WRONG_ARGUMENTS, "stmt_send_longdata")
+		return false, mysql.NewDefaultError(mysql.ER_WRONG_ARGUMENTS, "stmt_send_longdata")
 	}
 
 	if s.args[paramID] == nil {
@@ -446,39 +433,41 @@ func (c *ClientConn) handleStmtSendLongData(data []byte) error {
 			b = append(b, data[6:]...)
 			s.args[paramID] = b
 		} else {
-			return fmt.Errorf("invalid param long data type %T", s.args[paramID])
+			return false, fmt.Errorf("invalid param long data type %T", s.args[paramID])
 		}
 	}
 
-	return nil
+	return true, nil
 }
 
-func (c *ClientConn) handleStmtReset(data []byte) error {
+func (c *ClientConn) handleStmtReset(sql string) (bool, error) {
+	data := []byte(sql)
 	if len(data) < 4 {
-		return mysql.ErrMalformPacket
+		return false, mysql.ErrMalformPacket
 	}
 
 	id := binary.LittleEndian.Uint32(data[0:4])
 
 	s, ok := c.stmts[id]
 	if !ok {
-		return mysql.NewDefaultError(mysql.ER_UNKNOWN_STMT_HANDLER,
+		return false, mysql.NewDefaultError(mysql.ER_UNKNOWN_STMT_HANDLER,
 			strconv.FormatUint(uint64(id), 10), "stmt_reset")
 	}
 
 	s.ResetParams()
 
-	return c.writeOK(nil)
+	return true, c.writeOK(nil)
 }
 
-func (c *ClientConn) handleStmtClose(data []byte) error {
+func (c *ClientConn) handleStmtClose(sql string) (bool, error) {
+	data := []byte(sql)
 	if len(data) < 4 {
-		return nil
+		return false, mysql.ErrMalformPacket
 	}
 
 	id := binary.LittleEndian.Uint32(data[0:4])
 
 	delete(c.stmts, id)
 
-	return nil
+	return true, nil
 }

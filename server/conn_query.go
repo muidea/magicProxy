@@ -13,7 +13,7 @@ import (
 )
 
 /*处理query语句*/
-func (c *ClientConn) handleQuery(sql string) (err error) {
+func (c *ClientConn) handleQuery(sql string) (ret bool, err error) {
 	defer func() {
 		if e := recover(); e != nil {
 			golog.OutputSql("Error", "err:%v,sql:%s", e, sql)
@@ -34,37 +34,53 @@ func (c *ClientConn) handleQuery(sql string) (err error) {
 	}()
 
 	sql = strings.TrimRight(sql, ";") //删除sql语句最后的分号
-	hasHandled, err := c.preHandle(sql)
-	if err != nil {
-		golog.Error("server", "preHandle", err.Error(), 0, "sql", sql, "hasHandled", hasHandled)
-		return err
-	}
-	if hasHandled {
-		return nil
+	tokens := strings.FieldsFunc(sql, hack.IsSqlSep)
+	tokensLen := len(tokens)
+	if 0 < tokensLen {
+		tokenID, ok := mysql.PARSE_TOKEN_MAP[strings.ToLower(tokens[0])]
+		if ok == true {
+			switch tokenID {
+			case mysql.TK_ID_SELECT:
+				return false, nil
+			case mysql.TK_ID_DELETE:
+				return false, nil
+			case mysql.TK_ID_INSERT, mysql.TK_ID_REPLACE:
+				return false, nil
+			case mysql.TK_ID_UPDATE:
+				return false, nil
+			case mysql.TK_ID_SET:
+				//return c.getSetExecDB(sql, tokens, tokensLen)
+				return true, c.writeOK(nil)
+			case mysql.TK_ID_SHOW:
+				return false, nil
+			case mysql.TK_ID_TRUNCATE:
+				return false, nil
+			}
+		}
 	}
 
 	var stmt sqlparser.Statement
 	stmt, err = sqlparser.Parse(sql) //解析sql语句,得到的stmt是一个interface
 	if err != nil {
 		golog.Error("ClientConn", "Parse", err.Error(), 0, "sql", sql)
-		return err
+		return false, err
 	}
 
 	switch v := stmt.(type) {
 	case *sqlparser.DDL:
-		return nil
+		return false, nil
 	case *sqlparser.Select:
-		return c.handleSelect(v, nil)
+		return false, nil
 	case *sqlparser.Insert:
-		return c.handleExec(stmt, nil)
+		return false, nil
 	case *sqlparser.Update:
-		return c.handleExec(stmt, nil)
+		return false, nil
 	case *sqlparser.Delete:
-		return c.handleExec(stmt, nil)
+		return false, nil
 	case *sqlparser.Replace:
-		return c.handleExec(stmt, nil)
+		return false, nil
 	case *sqlparser.Set:
-		return c.handleSet(v, sql)
+		return false, nil
 	case *sqlparser.Begin:
 		return c.handleBegin()
 	case *sqlparser.Commit:
@@ -74,9 +90,9 @@ func (c *ClientConn) handleQuery(sql string) (err error) {
 	case *sqlparser.UseDB:
 		return c.handleUseDB(v.DB)
 	case *sqlparser.Truncate:
-		return c.handleExec(stmt, nil)
+		return false, nil
 	default:
-		return fmt.Errorf("statement %T not support now", stmt)
+		return false, nil
 	}
 }
 

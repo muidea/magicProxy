@@ -94,3 +94,7 @@ func (c *ClientConn) handleSetNames(ch, ci sqlparser.ValExpr) error {
 
 	return c.writeOK(nil)
 }
+
+func (c *ClientConn) handleSetOption(sql string) (bool, error) {
+	return true, c.writeEOF(0)
+}

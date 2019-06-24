@@ -1,27 +1,27 @@
 package server
 
-func (c *ClientConn) handleBegin() error {
+func (c *ClientConn) handleBegin() (bool, error) {
 	if err := c.begin(); err != nil {
-		return err
+		return false, err
 	}
 
-	return c.writeOK(nil)
+	return true, c.writeOK(nil)
 }
 
-func (c *ClientConn) handleCommit() (err error) {
+func (c *ClientConn) handleCommit() (bool, error) {
 	if err := c.commit(); err != nil {
-		return err
+		return false, err
 	}
 
-	return c.writeOK(nil)
+	return true, c.writeOK(nil)
 }
 
-func (c *ClientConn) handleRollback() (err error) {
+func (c *ClientConn) handleRollback() (bool, error) {
 	if err := c.rollback(); err != nil {
-		return err
+		return true, err
 	}
 
-	return c.writeOK(nil)
+	return true, c.writeOK(nil)
 }
 
 func (c *ClientConn) begin() (err error) {
