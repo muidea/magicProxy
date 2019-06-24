@@ -17,24 +17,14 @@ var testDB *backend.DB
 var testConfigData = []byte(`
 addr : 127.0.0.1:9696
 user : root
-password : 
+password : root
 
-nodes :
-- 
-    name : node1 
-    down_after_noalive : 300
+node :
+    name : node 
     idle_conns : 16
-    user: root
-    password: flike
-    master : 127.0.0.1:3306
-    slave : 
-
-schema :
-    default: node1  
-    nodes: [node1]
-    rules:
-        shard:
-            -
+    user: magicbatis
+    password: magicbatis
+    address : 127.0.0.1:3306
 `)
 
 func newTestServer(t *testing.T) *Server {
@@ -63,7 +53,7 @@ func newTestDB(t *testing.T) *backend.DB {
 	newTestServer(t)
 
 	f := func() {
-		testDB, _ = backend.Open("127.0.0.1:3306", "root", "flike", "kingshard", 100)
+		testDB, _ = backend.Open("127.0.0.1:3306", "root", "rootkit", "testDB", 100)
 	}
 
 	testDBOnce.Do(f)

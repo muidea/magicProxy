@@ -16,12 +16,12 @@ func TestConn_Handshake(t *testing.T) {
 
 func TestConn_DeleteTable(t *testing.T) {
 	server := newTestServer(t)
-	n := server.databaseNode
+	n := server.GetBackendNode()
 	c, err := n.GetConn()
 	if err != nil {
 		t.Fatal(err)
 	}
-	c.UseDB("kingshard")
+	c.UseDB("testDB")
 	if _, err := c.Execute(`drop table if exists kingshard_test_proxy_conn`); err != nil {
 		t.Fatal(err)
 	}
@@ -42,13 +42,13 @@ func TestConn_CreateTable(t *testing.T) {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8`
 
 	server := newTestServer(t)
-	n := server.databaseNode
+	n := server.GetBackendNode()
 	c, err := n.GetConn()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	c.UseDB("kingshard")
+	c.UseDB("testDB")
 	defer c.Close()
 	if _, err := c.Execute(s); err != nil {
 		t.Fatal(err)
@@ -275,12 +275,12 @@ func TestConn_LastInsertId(t *testing.T) {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8`
 
 	server := newTestServer(t)
-	n := server.databaseNode
+	n := server.GetBackendNode()
 	c1, err := n.GetConn()
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = c1.UseDB("kingshard")
+	err = c1.UseDB("testDB")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -324,7 +324,7 @@ func TestConn_LastInsertId(t *testing.T) {
 	}
 
 	c1, _ = n.GetConn()
-	err = c1.UseDB("kingshard")
+	err = c1.UseDB("testDB")
 	if err != nil {
 		t.Fatal(err)
 	}
