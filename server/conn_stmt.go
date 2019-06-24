@@ -242,7 +242,7 @@ func (c *ClientConn) handlePrepareSelect(stmt *sqlparser.Select, sql string, arg
 	rs, err := c.executeInConn(conn, sql, args)
 	if err != nil {
 		golog.Error("ClientConn", "handlePrepareSelect", err.Error(), c.connectionID)
-		return false, err
+		return true, err
 	}
 
 	status := c.status | rs.Status
@@ -253,7 +253,7 @@ func (c *ClientConn) handlePrepareSelect(stmt *sqlparser.Select, sql string, arg
 		err = c.writeResultset(status, r)
 	}
 
-	return false, err
+	return true, err
 }
 
 func (c *ClientConn) handlePrepareExec(stmt sqlparser.Statement, sql string, args []interface{}) (bool, error) {
@@ -417,13 +417,13 @@ func (c *ClientConn) handleStmtSendLongData(sql string) (bool, error) {
 
 	s, ok := c.stmts[id]
 	if !ok {
-		return false, mysql.NewDefaultError(mysql.ER_UNKNOWN_STMT_HANDLER,
+		return true, mysql.NewDefaultError(mysql.ER_UNKNOWN_STMT_HANDLER,
 			strconv.FormatUint(uint64(id), 10), "stmt_send_longdata")
 	}
 
 	paramID := binary.LittleEndian.Uint16(data[4:6])
 	if paramID >= uint16(s.params) {
-		return false, mysql.NewDefaultError(mysql.ER_WRONG_ARGUMENTS, "stmt_send_longdata")
+		return true, mysql.NewDefaultError(mysql.ER_WRONG_ARGUMENTS, "stmt_send_longdata")
 	}
 
 	if s.args[paramID] == nil {
@@ -433,7 +433,7 @@ func (c *ClientConn) handleStmtSendLongData(sql string) (bool, error) {
 			b = append(b, data[6:]...)
 			s.args[paramID] = b
 		} else {
-			return false, fmt.Errorf("invalid param long data type %T", s.args[paramID])
+			return true, fmt.Errorf("invalid param long data type %T", s.args[paramID])
 		}
 	}
 
@@ -450,7 +450,7 @@ func (c *ClientConn) handleStmtReset(sql string) (bool, error) {
 
 	s, ok := c.stmts[id]
 	if !ok {
-		return false, mysql.NewDefaultError(mysql.ER_UNKNOWN_STMT_HANDLER,
+		return true, mysql.NewDefaultError(mysql.ER_UNKNOWN_STMT_HANDLER,
 			strconv.FormatUint(uint64(id), 10), "stmt_reset")
 	}
 

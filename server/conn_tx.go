@@ -26,6 +26,7 @@ func (c *ClientConn) handleRollback() (bool, error) {
 
 func (c *ClientConn) begin() (err error) {
 	co, coErr := c.getBackendConn()
+	defer c.closeConn(co, false)
 	if coErr != nil {
 		err = coErr
 		return
@@ -37,6 +38,7 @@ func (c *ClientConn) begin() (err error) {
 
 func (c *ClientConn) commit() (err error) {
 	co, coErr := c.getBackendConn()
+	defer c.closeConn(co, false)
 	if coErr != nil {
 		err = coErr
 		return
@@ -48,6 +50,7 @@ func (c *ClientConn) commit() (err error) {
 
 func (c *ClientConn) rollback() (err error) {
 	co, coErr := c.getBackendConn()
+	defer c.closeConn(co, false)
 	if coErr != nil {
 		err = coErr
 		return

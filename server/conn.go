@@ -243,10 +243,10 @@ func (c *ClientConn) Run() {
 
 		err = c.dispatch(data)
 		if err != nil {
-			golog.Error("ClientConn", "Run",
-				err.Error(), c.connectionID,
-			)
+			golog.Error("ClientConn", "Run", err.Error(), c.connectionID)
+
 			c.writeError(err)
+
 			if err == mysql.ErrBadConn {
 				c.Close()
 			}
@@ -295,14 +295,22 @@ func (c *ClientConn) preHandleSQL(cmd byte, sql string) (ret bool, err error) {
 	case mysql.COM_QUIT:
 		ret, err = c.handleQuit()
 	case mysql.COM_PING:
+		// Ping
 		ret, err = c.handlePing()
 	case mysql.COM_INIT_DB:
+		// UseDB
 		ret, err = c.handleUseDB(sql)
 	case mysql.COM_QUERY:
+		// Begin
+		// Commit
+		// Rollback
 		ret, err = c.handleQuery(sql)
 	case mysql.COM_FIELD_LIST:
+		// FieldList
 		ret, err = c.handleFieldList(sql)
 	case mysql.COM_STMT_PREPARE:
+		// Prepare
+		// ClosePrepare
 		ret, err = c.handleStmtPrepare(sql)
 	case mysql.COM_STMT_EXECUTE:
 		ret, err = c.handleStmtExecute(sql)
