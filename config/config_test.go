@@ -27,24 +27,12 @@ addr : 0.0.0.0:9696
 user : root
 password : root
 
-nodes :
-- 
+node :
   name : node1 
   max_conns_limit : 16
   user: root
   password: root
   address : 127.0.0.1:3306
-- 
-  name : node2
-  user: root
-  address : 127.0.0.1:3307
-
-- 
-  name : node3 
-  max_conns_limit : 16
-  user: root
-  password: root
-  address : 127.0.0.1:3308
 `)
 
 	cfg, err := ParseConfigData(testConfigData)
@@ -52,9 +40,6 @@ nodes :
 		t.Fatal(err)
 	}
 
-	if len(cfg.Nodes) != 3 {
-		t.Fatal(len(cfg.Nodes))
-	}
 	testNode := NodeConfig{
 		Name:       "node1",
 		MaxConnNum: 16,
@@ -65,18 +50,8 @@ nodes :
 		Address: "127.0.0.1:3306",
 	}
 
-	if !reflect.DeepEqual(cfg.Nodes[0], testNode) {
-		fmt.Printf("%v\n", cfg.Nodes[0])
+	if !reflect.DeepEqual(cfg.Node, testNode) {
+		fmt.Printf("%v\n", cfg.Node)
 		t.Fatal("node1 must equal")
-	}
-
-	testNode_2 := NodeConfig{
-		Name:    "node2",
-		User:    "root",
-		Address: "127.0.0.1:3307",
-	}
-
-	if !reflect.DeepEqual(cfg.Nodes[1], testNode_2) {
-		t.Fatal("node2 must equal")
 	}
 }
