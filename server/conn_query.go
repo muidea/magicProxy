@@ -5,7 +5,6 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/muidea/magicProxy/backend"
 	"github.com/muidea/magicProxy/core/errors"
 	"github.com/muidea/magicProxy/core/golog"
 	"github.com/muidea/magicProxy/core/hack"
@@ -81,49 +80,6 @@ func (c *ClientConn) handleQuery(sql string) (err error) {
 	}
 }
 
-func (c *ClientConn) getBackendConn() (co *backend.BackendConn, err error) {
-	bkNode := c.proxy.GetBackendNode()
-	if bkNode == nil {
-		err = fmt.Errorf("nodefine backend node")
-
-		golog.Error("ClientConn", "GetBackendNode", err.Error(), 0)
-		return
-	}
-	co, err = bkNode.GetConn()
-	if err != nil {
-		golog.Error("ClientConn", "GetConn", err.Error(), 0)
-		return
-	}
-
-	if err = co.UseDB(c.db); err != nil {
-		c.db = ""
-		return
-	}
-
-	if err = co.SetCharset(c.charset, c.collation); err != nil {
-		return
-	}
-
-	return
-}
-
-func (c *ClientConn) executeInNode(conn *backend.BackendConn, sql string, args []interface{}) (*mysql.Result, error) {
-	r, err := conn.Execute(sql, args...)
-	if err != nil {
-		return nil, err
-	}
-
-	return r, err
-}
-
-func (c *ClientConn) closeConn(conn *backend.BackendConn, rollback bool) {
-	if rollback {
-		conn.Rollback()
-	}
-
-	conn.Close()
-}
-
 func (c *ClientConn) newEmptyResultset(stmt *sqlparser.Select) *mysql.Resultset {
 	r := new(mysql.Resultset)
 	r.Fields = make([]*mysql.Field, len(stmt.SelectExprs))
@@ -164,7 +120,7 @@ func (c *ClientConn) handleExec(stmt sqlparser.Statement, args []interface{}) er
 		return err
 	}
 
-	rs, err := c.executeInNode(conns, "sql", args)
+	rs, err := c.executeInConn(conns, "sql", args)
 	if err == nil {
 		return c.writeOK(rs)
 	}

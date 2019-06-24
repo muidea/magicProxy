@@ -67,7 +67,7 @@ func (c *ClientConn) handleSelect(stmt *sqlparser.Select, args []interface{}) er
 		return err
 	}
 
-	rs, err := c.executeInNode(conns, "sql", args)
+	rs, err := c.executeInConn(conns, "sql", args)
 	if err == nil {
 		return c.writeOK(rs)
 	}

@@ -249,7 +249,7 @@ func (c *ClientConn) handlePrepareSelect(stmt *sqlparser.Select, sql string, arg
 		return c.writeResultset(c.status, r)
 	}
 
-	rs, err := c.executeInNode(conn, sql, args)
+	rs, err := c.executeInConn(conn, sql, args)
 	if err != nil {
 		golog.Error("ClientConn", "handlePrepareSelect", err.Error(), c.connectionID)
 		return err
@@ -278,7 +278,7 @@ func (c *ClientConn) handlePrepareExec(stmt sqlparser.Statement, sql string, arg
 		return c.writeOK(nil)
 	}
 
-	rs, err := c.executeInNode(conn, sql, args)
+	rs, err := c.executeInConn(conn, sql, args)
 	c.closeConn(conn, false)
 
 	if err != nil {

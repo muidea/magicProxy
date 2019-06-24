@@ -3,10 +3,11 @@ package server
 import (
 	"bytes"
 	"encoding/binary"
-	"log"
+	"fmt"
 	"net"
 	"runtime"
 
+	"github.com/muidea/magicProxy/backend"
 	"github.com/muidea/magicProxy/core/golog"
 	"github.com/muidea/magicProxy/core/hack"
 	"github.com/muidea/magicProxy/mysql"
@@ -228,9 +229,7 @@ func (c *ClientConn) Run() {
 			buf := make([]byte, size)
 			buf = buf[:runtime.Stack(buf, false)]
 
-			golog.Error("ClientConn", "Run",
-				err.Error(), 0,
-				"stack", string(buf))
+			golog.Error("ClientConn", "Run", err.Error(), 0, "stack", string(buf))
 		}
 
 		c.Close()
@@ -262,45 +261,104 @@ func (c *ClientConn) Run() {
 }
 
 func (c *ClientConn) dispatch(data []byte) error {
-	//cmd := data[0]
+	cmd := data[0]
 	data = data[1:]
+	sql := hack.String(data)
 
-	log.Printf("sql:%s", hack.String(data))
+	golog.Info("ClientConn", "dispatch", "data", 0, "cmd", cmd, "sql", sql)
 
-	return c.executeSQL(hack.String(data))
+	preHandle, preErr := c.preHandleSQL(cmd, sql)
+	if preErr != nil || preHandle {
+		return preErr
+	}
 
-	/*
-		switch cmd {
-		case mysql.COM_QUIT:
-			c.handleRollback()
-			c.Close()
-			return nil
-		case mysql.COM_QUERY:
-			return c.handleQuery(hack.String(data))
-		case mysql.COM_PING:
-			return c.writeOK(nil)
-		case mysql.COM_INIT_DB:
-			return c.handleUseDB(hack.String(data))
-		case mysql.COM_FIELD_LIST:
-			return c.handleFieldList(data)
-		case mysql.COM_STMT_PREPARE:
-			return c.handleStmtPrepare(hack.String(data))
-		case mysql.COM_STMT_EXECUTE:
-			return c.handleStmtExecute(data)
-		case mysql.COM_STMT_CLOSE:
-			return c.handleStmtClose(data)
-		case mysql.COM_STMT_SEND_LONG_DATA:
-			return c.handleStmtSendLongData(data)
-		case mysql.COM_STMT_RESET:
-			return c.handleStmtReset(data)
-		case mysql.COM_SET_OPTION:
-			return c.writeEOF(0)
-		default:
-			msg := fmt.Sprintf("command %d not supported now", cmd)
-			golog.Error("ClientConn", "dispatch", msg, 0)
-			return mysql.NewError(mysql.ER_UNKNOWN_ERROR, msg)
-		}
-	*/
+	return c.executeSQL(sql)
+}
+
+func (c *ClientConn) preHandleSQL(cmd byte, sql string) (ret bool, err error) {
+	switch cmd {
+	case mysql.COM_QUIT:
+		c.handleRollback()
+		c.Close()
+		ret = true
+	case mysql.COM_QUERY:
+	case mysql.COM_PING:
+		ret = true
+		err = c.writeOK(nil)
+	case mysql.COM_INIT_DB:
+		ret = true
+		err = c.handleUseDB(sql)
+	default:
+		ret = false
+	}
+
+	return
+}
+
+func (c *ClientConn) executeSQL(sql string) error {
+	//get connection in DB
+	conn, err := c.getBackendConn()
+	defer c.closeConn(conn, false)
+	if err != nil {
+		return err
+	}
+
+	//execute.sql may be rewritten in getShowExecDB
+	rs, err := c.executeInConn(conn, sql, nil)
+	if err != nil {
+		return err
+	}
+
+	if rs.Resultset != nil {
+		err = c.writeResultset(c.status, rs.Resultset)
+	} else {
+		err = c.writeOK(rs)
+	}
+
+	return err
+}
+
+func (c *ClientConn) getBackendConn() (co *backend.BackendConn, err error) {
+	bkNode := c.proxy.GetBackendNode()
+	if bkNode == nil {
+		err = fmt.Errorf("nodefine backend node")
+
+		golog.Error("ClientConn", "GetBackendNode", err.Error(), 0)
+		return
+	}
+	co, err = bkNode.GetConn()
+	if err != nil {
+		golog.Error("ClientConn", "GetConn", err.Error(), 0)
+		return
+	}
+
+	if err = co.UseDB(c.db); err != nil {
+		c.db = ""
+		return
+	}
+
+	if err = co.SetCharset(c.charset, c.collation); err != nil {
+		return
+	}
+
+	return
+}
+
+func (c *ClientConn) executeInConn(conn *backend.BackendConn, sql string, args []interface{}) (*mysql.Result, error) {
+	r, err := conn.Execute(sql, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	return r, err
+}
+
+func (c *ClientConn) closeConn(conn *backend.BackendConn, rollback bool) {
+	if rollback {
+		conn.Rollback()
+	}
+
+	conn.Close()
 }
 
 func (c *ClientConn) writeOK(r *mysql.Result) error {

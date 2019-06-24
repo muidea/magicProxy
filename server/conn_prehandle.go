@@ -162,26 +162,3 @@ func (c *ClientConn) handleTruncateToken(sql string, tokens []string, tokensLen 
 	err := c.executeSQL(sql)
 	return true, err
 }
-
-func (c *ClientConn) executeSQL(sql string) error {
-	//get connection in DB
-	conn, err := c.getBackendConn()
-	defer c.closeConn(conn, false)
-	if err != nil {
-		return err
-	}
-
-	//execute.sql may be rewritten in getShowExecDB
-	rs, err := c.executeInNode(conn, sql, nil)
-	if err != nil {
-		return err
-	}
-
-	if rs.Resultset != nil {
-		err = c.writeResultset(c.status, rs.Resultset)
-	} else {
-		err = c.writeOK(rs)
-	}
-
-	return err
-}
