@@ -7,7 +7,7 @@ import (
 var nstring = sqlparser.String
 
 func (c *ClientConn) handleSet(sql string) (bool, error) {
-	return true, c.writeOK(nil)
+	return true, c.executeSQL(sql)
 }
 
 func (c *ClientConn) handleSetOption(sql string) (bool, error) {

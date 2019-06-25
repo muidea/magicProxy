@@ -265,13 +265,13 @@ func (c *ClientConn) dispatch(data []byte) error {
 	data = data[1:]
 	sql := hack.String(data)
 
-	golog.Info("ClientConn", "dispatch", "preHandleSQL", 0, "cmd", cmd, "sql", sql)
+	//golog.Info("ClientConn", "dispatch", "preHandleSQL", 0, "cmd", cmd, "sql", sql)
 
-	preHandle, preErr := c.preHandleSQL(cmd, sql)
-	if preErr != nil || preHandle {
-		golog.Info("ClientConn", "dispatch", "preHandleSQL", 0, "preHandle", preHandle)
-		return preErr
-	}
+	//preHandle, preErr := c.preHandleSQL(cmd, sql)
+	//if preErr != nil || preHandle {
+	//	golog.Info("ClientConn", "dispatch", "preHandleSQL", 0, "preHandle", preHandle)
+	//	return preErr
+	//}
 
 	golog.Info("ClientConn", "dispatch", "executeSQL", 0, "cmd", cmd, "sql", sql)
 	return c.executeSQL(sql)

@@ -49,7 +49,6 @@ func (c *ClientConn) handleQuery(sql string) (ret bool, err error) {
 			case mysql.TK_ID_UPDATE:
 				return false, nil
 			case mysql.TK_ID_SET:
-				//return c.getSetExecDB(sql, tokens, tokensLen)
 				return c.handleSet(sql)
 			case mysql.TK_ID_SHOW:
 				return c.handleShow(sql)
