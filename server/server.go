@@ -99,9 +99,6 @@ func (s *Server) newClientConn(co net.Conn) *ClientConn {
 	c.charset = mysql.DEFAULT_CHARSET
 	c.collation = mysql.DEFAULT_COLLATION_ID
 
-	c.stmtID = 0
-	c.stmts = make(map[uint32]*Stmt)
-
 	return c
 }
 

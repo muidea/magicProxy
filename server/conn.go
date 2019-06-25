@@ -37,10 +37,6 @@ type ClientConn struct {
 	salt []byte
 
 	closed bool
-
-	stmtID uint32
-
-	stmts map[uint32]*Stmt //prepare相关,client端到proxy的stmt
 }
 
 // DefaultCapability default capability
@@ -265,75 +261,25 @@ func (c *ClientConn) dispatch(data []byte) error {
 	data = data[1:]
 	sql := hack.String(data)
 
-	//golog.Info("ClientConn", "dispatch", "preHandleSQL", 0, "cmd", cmd, "sql", sql)
+	/*
+		preHandle, preErr := c.preHandleSQL(cmd, sql)
+		if preErr != nil || preHandle {
+			golog.Info("ClientConn", "dispatch", "preHandleSQL", 0, "preHandle", preHandle)
+			return preErr
+		}
+	*/
 
-	//preHandle, preErr := c.preHandleSQL(cmd, sql)
-	//if preErr != nil || preHandle {
-	//	golog.Info("ClientConn", "dispatch", "preHandleSQL", 0, "preHandle", preHandle)
-	//	return preErr
-	//}
-
-	golog.Info("ClientConn", "dispatch", "executeSQL", 0, "cmd", cmd, "sql", sql)
+	golog.Info("ClientConn", "dispatch", "executeSQL", 0, "cmd", cmd, "sql", sql, "Sequence", c.pkg.Sequence)
 	return c.executeSQL(sql)
 }
 
-// Ping
-// UseDB
-
-// Begin
-// Commit
-// Rollback
-// Show
-// Set
-
-// Prepare
-// ClosePrepare
-
-// Execute
-
-// SetAutoCommit
-// SetCharset
-// FieldList
 func (c *ClientConn) preHandleSQL(cmd byte, sql string) (ret bool, err error) {
 	switch cmd {
-	case mysql.COM_QUIT:
-		ret, err = c.handleQuit()
 	case mysql.COM_PING:
 		// Ping
 		ret, err = c.handlePing()
-	case mysql.COM_INIT_DB:
-		// UseDB
-		ret, err = c.handleUseDB(sql)
-	case mysql.COM_QUERY:
-		// Begin
-		// Commit
-		// Rollback
-		// Show
-		// Set
-		ret, err = c.handleQuery(sql)
-	case mysql.COM_FIELD_LIST:
-		// FieldList
-		ret, err = c.handleFieldList(sql)
-	case mysql.COM_STMT_PREPARE:
-		// Prepare
-		// ClosePrepare
-		ret, err = c.handleStmtPrepare(sql)
-	case mysql.COM_STMT_EXECUTE:
-		ret, err = c.handleStmtExecute(sql)
-	case mysql.COM_STMT_CLOSE:
-		ret, err = c.handleStmtClose(sql)
-	case mysql.COM_STMT_SEND_LONG_DATA:
-		ret, err = c.handleStmtSendLongData(sql)
-	case mysql.COM_STMT_RESET:
-		ret, err = c.handleStmtReset(sql)
-	case mysql.COM_SET_OPTION:
-		ret, err = c.handleSetOption(sql)
 	default:
-		msg := fmt.Sprintf("command %d not supported now", cmd)
-		golog.Error("ClientConn", "dispatch", msg, 0)
-
 		ret = false
-		err = mysql.NewError(mysql.ER_UNKNOWN_ERROR, msg)
 	}
 
 	return
