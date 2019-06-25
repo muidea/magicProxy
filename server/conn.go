@@ -31,8 +31,9 @@ type ClientConn struct {
 	collation mysql.CollationId
 	charset   string
 
-	user string
-	db   string
+	user         string
+	connectionDB string
+	currentDB    string
 
 	salt []byte
 
@@ -208,10 +209,12 @@ func (c *ClientConn) readHandshakeResponse() error {
 		}
 
 		db = string(data[pos : pos+bytes.IndexByte(data[pos:], 0)])
-		pos += len(c.db) + 1
+		pos += len(c.currentDB) + 1
 
 	}
-	c.db = db
+	c.connectionDB = db
+
+	c.currentDB = db
 
 	return nil
 }
@@ -328,8 +331,8 @@ func (c *ClientConn) getBackendConn() (co *backend.BackendConn, err error) {
 		return
 	}
 
-	if err = co.UseDB(c.db); err != nil {
-		c.db = ""
+	if err = co.UseDB(c.currentDB); err != nil {
+		c.currentDB = ""
 		return
 	}
 

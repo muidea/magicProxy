@@ -20,7 +20,7 @@ func (c *ClientConn) handleUseDB(dbName string) (ret bool, err error) {
 	}
 
 	err = co.UseDB(dbName)
-	c.db = dbName
+	c.currentDB = dbName
 
 	return true, err
 }

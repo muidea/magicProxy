@@ -127,7 +127,7 @@ func (s *Server) onConn(c net.Conn) {
 		return
 	}
 
-	golog.Info("server", "onConn", "new connection", 0, "remote address", c.RemoteAddr().String(), "database", conn.db)
+	golog.Info("server", "onConn", "new connection", 0, "remote address", c.RemoteAddr().String(), "database", conn.currentDB)
 
 	conn.Run()
 }
