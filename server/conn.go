@@ -261,13 +261,11 @@ func (c *ClientConn) dispatch(data []byte) error {
 	data = data[1:]
 	sql := hack.String(data)
 
-	/*
-		preHandle, preErr := c.preHandleSQL(cmd, sql)
-		if preErr != nil || preHandle {
-			golog.Info("ClientConn", "dispatch", "preHandleSQL", 0, "preHandle", preHandle)
-			return preErr
-		}
-	*/
+	preHandle, preErr := c.preHandleSQL(cmd, sql)
+	if preErr != nil || preHandle {
+		golog.Info("ClientConn", "dispatch", "preHandleSQL", 0, "preHandle", preHandle)
+		return preErr
+	}
 
 	golog.Info("ClientConn", "dispatch", "executeSQL", 0, "cmd", cmd, "sql", sql, "Sequence", c.pkg.Sequence)
 	return c.executeSQL(sql)
@@ -275,11 +273,18 @@ func (c *ClientConn) dispatch(data []byte) error {
 
 func (c *ClientConn) preHandleSQL(cmd byte, sql string) (ret bool, err error) {
 	switch cmd {
+	case mysql.COM_QUERY:
+		ret, err = c.handleQuery(sql)
+	case mysql.COM_INIT_DB:
+		ret, err = c.handleUseDB(sql)
 	case mysql.COM_PING:
-		// Ping
 		ret, err = c.handlePing()
 	default:
 		ret = false
+	}
+
+	if ret && err == nil {
+		c.writeOK(nil)
 	}
 
 	return
