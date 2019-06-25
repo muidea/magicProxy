@@ -101,7 +101,7 @@ func (c *Conn) ReConnect() error {
 
 	//we must always use autocommit
 	if !c.IsAutoCommit() {
-		if _, err := c.exec("set autocommit = 1"); err != nil {
+		if _, err := c.exec("SET AUTOCOMMIT = 1"); err != nil {
 			c.conn.Close()
 
 			return err
@@ -416,18 +416,19 @@ func (c *Conn) Rollback() error {
 // SetAutoCommit set auto commit
 func (c *Conn) SetAutoCommit(n uint8) error {
 	if n == 0 {
-		if _, err := c.exec("set autocommit = 0"); err != nil {
+		if _, err := c.exec("SET AUTOCOMMIT = 0"); err != nil {
 			c.conn.Close()
 
 			return err
 		}
 	} else {
-		if _, err := c.exec("set autocommit = 1"); err != nil {
+		if _, err := c.exec("SET AUTOCOMMIT = 1"); err != nil {
 			c.conn.Close()
 
 			return err
 		}
 	}
+
 	return nil
 }
 
