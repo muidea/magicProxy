@@ -283,6 +283,16 @@ func (c *ClientConn) preHandleSQL(cmd byte, sql string) (ret bool, err error) {
 		ret, err = c.handleUseDB(sql)
 	case mysql.COM_PING:
 		ret, err = c.handlePing()
+	//case mysql.COM_STMT_PREPARE:
+	//	return c.handleStmtPrepare(hack.String(data))
+	//case mysql.COM_STMT_EXECUTE:
+	//	return c.handleStmtExecute(data)
+	//case mysql.COM_STMT_CLOSE:
+	//	return c.handleStmtClose(data)
+	//case mysql.COM_STMT_SEND_LONG_DATA:
+	//	return c.handleStmtSendLongData(data)
+	//case mysql.COM_STMT_RESET:
+	//	return c.handleStmtReset(data)
 	default:
 		ret = false
 	}
@@ -353,6 +363,10 @@ func (c *ClientConn) executeInConn(conn *backend.BackendConn, sql string, args [
 }
 
 func (c *ClientConn) closeConn(conn *backend.BackendConn, rollback bool) {
+	if c.isInTransaction() {
+		return
+	}
+
 	if rollback {
 		conn.Rollback()
 	}

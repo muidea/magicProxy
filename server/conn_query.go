@@ -22,6 +22,12 @@ func (c *ClientConn) handleQuery(sql string) (ret bool, err error) {
 		case mysql.TK_ID_USE:
 			dbName = strings.Trim(tokens[1], "`")
 			ret, err = c.handleUseDB(dbName)
+		case mysql.TK_ID_BEGIN:
+			ret, err = c.handleBegin()
+		case mysql.TK_ID_COMMIT:
+			ret, err = c.handleCommit()
+		case mysql.TK_ID_ROLLBACK:
+			ret, err = c.handleRollback()
 		default:
 			return false, nil
 		}
