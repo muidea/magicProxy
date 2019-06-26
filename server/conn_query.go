@@ -25,7 +25,10 @@ func (c *ClientConn) handleQuery(sql string) (ret bool, err error) {
 		case mysql.TK_ID_BEGIN:
 			ret, err = c.handleBegin()
 		case mysql.TK_ID_START:
-			ret, err = c.handleBegin()
+			secondID, secondOK := mysql.PARSE_TOKEN_MAP[strings.ToLower(tokens[1])]
+			if secondOK && secondID == mysql.TK_ID_TRANSACTION {
+				ret, err = c.handleBegin()
+			}
 		case mysql.TK_ID_COMMIT:
 			ret, err = c.handleCommit()
 		case mysql.TK_ID_ROLLBACK:
