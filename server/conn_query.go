@@ -24,6 +24,8 @@ func (c *ClientConn) handleQuery(sql string) (ret bool, err error) {
 			ret, err = c.handleUseDB(dbName)
 		case mysql.TK_ID_BEGIN:
 			ret, err = c.handleBegin()
+		case mysql.TK_ID_START:
+			ret, err = c.handleBegin()
 		case mysql.TK_ID_COMMIT:
 			ret, err = c.handleCommit()
 		case mysql.TK_ID_ROLLBACK:

@@ -31,6 +31,8 @@ type ClientConn struct {
 	collation mysql.CollationId
 	charset   string
 
+	txConnection *backend.BackendConn
+
 	user         string
 	connectionDB string
 	currentDB    string
@@ -327,7 +329,7 @@ func (c *ClientConn) executeSQL(sql string) error {
 	return err
 }
 
-func (c *ClientConn) getBackendConn() (co *backend.BackendConn, err error) {
+func (c *ClientConn) allocConn() (co *backend.BackendConn, err error) {
 	bkNode := c.proxy.GetBackendNode()
 	if bkNode == nil {
 		err = fmt.Errorf("nodefine backend node")
@@ -350,6 +352,28 @@ func (c *ClientConn) getBackendConn() (co *backend.BackendConn, err error) {
 		return
 	}
 
+	return
+}
+
+func (c *ClientConn) getBackendConn() (co *backend.BackendConn, err error) {
+	if c.isInTransaction() {
+		if c.txConnection == nil {
+			co, err = c.allocConn()
+			if err != nil {
+				return
+			}
+
+			co.SetAutoCommit(0)
+
+			c.txConnection = co
+		}
+
+		co = c.txConnection
+
+		return
+	}
+
+	co, err = c.allocConn()
 	return
 }
 

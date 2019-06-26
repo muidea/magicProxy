@@ -255,7 +255,7 @@ func (db *DB) tryReuse(co *Conn) error {
 
 	if !co.IsAutoCommit() {
 		//we can not  reuse a connection not in autocomit
-		_, err = co.exec("set autocommit = 1")
+		_, err = co.exec("SET AUTOCOMMIT = 1")
 		if err != nil {
 			return err
 		}
