@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/muidea/magicProxy/backend"
 	"github.com/muidea/magicProxy/core/golog"
 	"github.com/muidea/magicProxy/core/hack"
 	"github.com/muidea/magicProxy/mysql"
@@ -231,6 +230,8 @@ func (c *ClientConn) handleStmtExecute(sql string) (bool, error) {
 		err = c.handlePrepareExec(s.s, s.sql, s.args)
 	case *sqlparser.Replace:
 		err = c.handlePrepareExec(s.s, s.sql, s.args)
+	case *sqlparser.DDL:
+		err = c.handlePrepareExec(s.s, s.sql, s.args)
 	default:
 		err = fmt.Errorf("command %T not supported now", stmt)
 	}
@@ -253,16 +254,16 @@ func (c *ClientConn) handlePrepareSelect(stmt *sqlparser.Select, sql string, arg
 		return c.writeResultset(c.status, r)
 	}
 
-	var rs []*mysql.Result
-	rs, err = c.executeInNode(conn, sql, args)
+	var rs *mysql.Result
+	rs, err = c.executeInConn(conn, sql, args)
 	if err != nil {
 		golog.Error("ClientConn", "handlePrepareSelect", err.Error(), c.connectionID)
 		return err
 	}
 
-	status := c.status | rs[0].Status
-	if rs[0].Resultset != nil {
-		err = c.writeResultset(status, rs[0].Resultset)
+	status := c.status | rs.Status
+	if rs.Resultset != nil {
+		err = c.writeResultset(status, rs.Resultset)
 	} else {
 		r := c.newEmptyResultset(stmt)
 		err = c.writeResultset(status, r)
@@ -283,8 +284,8 @@ func (c *ClientConn) handlePrepareExec(stmt sqlparser.Statement, sql string, arg
 		return c.writeOK(nil)
 	}
 
-	var rs []*mysql.Result
-	rs, err = c.executeInNode(conn, sql, args)
+	var rs *mysql.Result
+	rs, err = c.executeInConn(conn, sql, args)
 	c.closeConn(conn, false)
 
 	if err != nil {
@@ -292,11 +293,11 @@ func (c *ClientConn) handlePrepareExec(stmt sqlparser.Statement, sql string, arg
 		return err
 	}
 
-	status := c.status | rs[0].Status
-	if rs[0].Resultset != nil {
-		err = c.writeResultset(status, rs[0].Resultset)
+	status := c.status | rs.Status
+	if rs.Resultset != nil {
+		err = c.writeResultset(status, rs.Resultset)
 	} else {
-		err = c.writeOK(rs[0])
+		err = c.writeOK(rs)
 	}
 
 	return err
@@ -492,16 +493,6 @@ func (c *ClientConn) handleStmtClose(sql string) (bool, error) {
 	delete(c.stmts, id)
 
 	return true, nil
-}
-
-func (c *ClientConn) executeInNode(conn *backend.BackendConn, sql string, args []interface{}) ([]*mysql.Result, error) {
-	r, err := conn.Execute(sql, args...)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return []*mysql.Result{r}, err
 }
 
 func (c *ClientConn) newEmptyResultset(stmt *sqlparser.Select) *mysql.Resultset {
