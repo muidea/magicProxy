@@ -12,6 +12,28 @@ import (
 	"github.com/muidea/magicProxy/mysql"
 )
 
+/*
+Connect
+ReConnect
+Close
+Ping
+UseDB
+GetDB
+GetAddr
+Execute
+ClosePrepare
+Begin
+Commit
+Rollback
+SetAutoCommit
+SetCharset
+FieldList
+GetCharset
+IsAutoCommit
+IsInTransaction
+
+*/
+
 var (
 	pingPeriod = int64(time.Second * 16)
 )

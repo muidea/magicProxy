@@ -39,6 +39,9 @@ type ClientConn struct {
 
 	salt []byte
 
+	stmtID uint32
+	stmts  map[uint32]*Stmt //prepare相关,client端到proxy的stmt
+
 	closed bool
 }
 
@@ -285,16 +288,16 @@ func (c *ClientConn) preHandleSQL(cmd byte, sql string) (ret bool, err error) {
 		ret, err = c.handleUseDB(sql)
 	case mysql.COM_PING:
 		ret, err = c.handlePing()
-	//case mysql.COM_STMT_PREPARE:
-	//	return c.handleStmtPrepare(hack.String(data))
-	//case mysql.COM_STMT_EXECUTE:
-	//	return c.handleStmtExecute(data)
-	//case mysql.COM_STMT_CLOSE:
-	//	return c.handleStmtClose(data)
-	//case mysql.COM_STMT_SEND_LONG_DATA:
-	//	return c.handleStmtSendLongData(data)
-	//case mysql.COM_STMT_RESET:
-	//	return c.handleStmtReset(data)
+	case mysql.COM_STMT_PREPARE:
+		return c.handleStmtPrepare(sql)
+	case mysql.COM_STMT_EXECUTE:
+		return c.handleStmtExecute(sql)
+	case mysql.COM_STMT_CLOSE:
+		return c.handleStmtClose(sql)
+	case mysql.COM_STMT_SEND_LONG_DATA:
+		return c.handleStmtSendLongData(sql)
+	case mysql.COM_STMT_RESET:
+		return c.handleStmtReset(sql)
 	default:
 		ret = false
 	}
