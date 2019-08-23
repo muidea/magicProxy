@@ -145,6 +145,11 @@ func (c *Conn) Close() error {
 	return nil
 }
 
+// Status get connection status
+func (c *Conn) Status() uint16 {
+	return c.status
+}
+
 func (c *Conn) readPacket() ([]byte, error) {
 	d, err := c.pkg.ReadPacket()
 	c.pkgErr = err

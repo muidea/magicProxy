@@ -401,6 +401,14 @@ func (c *ClientConn) closeConn(conn *backend.BackendConn, rollback bool) {
 	conn.Close()
 }
 
+func (c *ClientConn) checkStatus(conn *backend.BackendConn) {
+	clientStatus := c.status
+	backendStatus := conn.Status()
+	if clientStatus != backendStatus {
+		golog.Error("ClientConn", "checkStatus", "mismatch status", 0, "ClientConn:", clientStatus, "BackendConn:", backendStatus)
+	}
+}
+
 func (c *ClientConn) writeOK(r *mysql.Result) error {
 	if r == nil {
 		r = &mysql.Result{Status: c.status}
