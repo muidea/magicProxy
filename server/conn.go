@@ -311,14 +311,14 @@ func (c *ClientConn) preHandleSQL(cmd byte, sql string) (ret bool, err error) {
 
 func (c *ClientConn) executeSQL(sql string) error {
 	//get connection in DB
-	conn, err := c.getBackendConn()
-	defer c.closeConn(conn, false)
+	co, err := c.getBackendConn()
+	defer c.closeConn(co, false)
 	if err != nil {
 		return err
 	}
 
 	//execute.sql may be rewritten in getShowExecDB
-	rs, err := c.executeInConn(conn, sql, nil)
+	rs, err := c.executeInConn(co, sql, nil)
 	if err != nil {
 		return err
 	}
@@ -328,6 +328,8 @@ func (c *ClientConn) executeSQL(sql string) error {
 	} else {
 		err = c.writeOK(rs)
 	}
+
+	c.checkStatus(co)
 
 	return err
 }
@@ -354,6 +356,8 @@ func (c *ClientConn) allocConn() (co *backend.BackendConn, err error) {
 	if err = co.SetCharset(c.charset, c.collation); err != nil {
 		return
 	}
+
+	c.checkStatus(co)
 
 	return
 }
@@ -402,6 +406,10 @@ func (c *ClientConn) closeConn(conn *backend.BackendConn, rollback bool) {
 }
 
 func (c *ClientConn) checkStatus(conn *backend.BackendConn) {
+	if conn == nil {
+		return
+	}
+
 	clientStatus := c.status
 	backendStatus := conn.Status()
 	if clientStatus != backendStatus {

@@ -53,7 +53,7 @@ func (c *ClientConn) handleStmtPrepare(sql string) (bool, error) {
 	var err error
 	s.s, err = sqlparser.Parse(sql)
 	if err != nil {
-		return false, fmt.Errorf(`parse sql "%s" error`, sql)
+		return true, fmt.Errorf(`parse sql "%s" error`, sql)
 	}
 
 	s.sql = sql
@@ -61,14 +61,14 @@ func (c *ClientConn) handleStmtPrepare(sql string) (bool, error) {
 	co, err := c.getBackendConn()
 	defer c.closeConn(co, false)
 	if err != nil {
-		return false, fmt.Errorf("prepare error %s", err)
+		return true, fmt.Errorf("prepare error %s", err)
 	}
 
 	err = co.UseDB(c.currentDB)
 	if err != nil {
 		//reset the database to null
 		c.currentDB = ""
-		return false, fmt.Errorf("prepare error %s", err)
+		return true, fmt.Errorf("prepare error %s", err)
 	}
 
 	t, err := co.Prepare(sql)
@@ -92,6 +92,8 @@ func (c *ClientConn) handleStmtPrepare(sql string) (bool, error) {
 	if err != nil {
 		return true, err
 	}
+
+	c.checkStatus(co)
 
 	return true, nil
 }
@@ -243,19 +245,19 @@ func (c *ClientConn) handleStmtExecute(sql string) (bool, error) {
 
 func (c *ClientConn) handlePrepareSelect(stmt *sqlparser.Select, sql string, args []interface{}) error {
 	//choose connection in slave DB first
-	conn, err := c.getBackendConn()
-	defer c.closeConn(conn, false)
+	co, err := c.getBackendConn()
+	defer c.closeConn(co, false)
 	if err != nil {
 		return err
 	}
 
-	if conn == nil {
+	if co == nil {
 		r := c.newEmptyResultset(stmt)
 		return c.writeResultset(c.status, r)
 	}
 
 	var rs *mysql.Result
-	rs, err = c.executeInConn(conn, sql, args)
+	rs, err = c.executeInConn(co, sql, args)
 	if err != nil {
 		golog.Error("ClientConn", "handlePrepareSelect", err.Error(), c.connectionID)
 		return err
@@ -269,24 +271,26 @@ func (c *ClientConn) handlePrepareSelect(stmt *sqlparser.Select, sql string, arg
 		err = c.writeResultset(status, r)
 	}
 
+	c.checkStatus(co)
+
 	return err
 }
 
 func (c *ClientConn) handlePrepareExec(stmt sqlparser.Statement, sql string, args []interface{}) error {
 	//execute in Master DB
-	conn, err := c.getBackendConn()
-	defer c.closeConn(conn, false)
+	co, err := c.getBackendConn()
 	if err != nil {
 		return err
 	}
 
-	if conn == nil {
+	if co == nil {
 		return c.writeOK(nil)
 	}
+	defer c.closeConn(co, false)
 
 	var rs *mysql.Result
-	rs, err = c.executeInConn(conn, sql, args)
-	c.closeConn(conn, false)
+	rs, err = c.executeInConn(co, sql, args)
+	//c.closeConn(co, false)
 
 	if err != nil {
 		golog.Error("ClientConn", "handlePrepareExec", err.Error(), c.connectionID)
@@ -299,6 +303,8 @@ func (c *ClientConn) handlePrepareExec(stmt sqlparser.Statement, sql string, arg
 	} else {
 		err = c.writeOK(rs)
 	}
+
+	c.checkStatus(co)
 
 	return err
 }

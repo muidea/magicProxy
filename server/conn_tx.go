@@ -24,9 +24,11 @@ func (c *ClientConn) handleBegin() (ret bool, err error) {
 	//get the connection from slave preferentially
 	co, coErr := c.getBackendConn()
 	defer c.closeConn(co, false)
+
+	ret = true
+
 	if coErr == nil {
 		err = co.Begin()
-		ret = true
 	} else {
 		err = coErr
 	}
@@ -34,6 +36,8 @@ func (c *ClientConn) handleBegin() (ret bool, err error) {
 	if err != nil {
 		c.offInTransaction()
 	}
+
+	c.checkStatus(co)
 
 	return
 }
@@ -44,16 +48,19 @@ func (c *ClientConn) handleCommit() (ret bool, err error) {
 	//get the connection from slave preferentially
 	co, coErr := c.getBackendConn()
 	defer c.closeConn(co, false)
-	if coErr != nil {
-		err = coErr
-		return
-	}
 
-	err = co.Commit()
 	ret = true
+
+	if coErr == nil {
+		err = co.Commit()
+	} else {
+		err = coErr
+	}
 
 	c.offInTransaction()
 	c.txConnection = nil
+
+	c.checkStatus(co)
 
 	return
 }
@@ -64,16 +71,19 @@ func (c *ClientConn) handleRollback() (ret bool, err error) {
 	//get the connection from slave preferentially
 	co, coErr := c.getBackendConn()
 	defer c.closeConn(co, false)
-	if coErr != nil {
-		err = coErr
-		return
-	}
 
-	err = co.Rollback()
 	ret = true
+
+	if coErr == nil {
+		err = co.Rollback()
+	} else {
+		err = coErr
+	}
 
 	c.offInTransaction()
 	c.txConnection = nil
+
+	c.checkStatus(co)
 
 	return
 }

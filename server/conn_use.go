@@ -7,7 +7,7 @@ import (
 
 func (c *ClientConn) handleUseDB(dbName string) (ret bool, err error) {
 	if dbName == "" {
-		return false, errors.ErrNoDatabase
+		return true, errors.ErrNoDatabase
 	}
 
 	var co *backend.BackendConn
@@ -16,11 +16,13 @@ func (c *ClientConn) handleUseDB(dbName string) (ret bool, err error) {
 	co, err = c.getBackendConn()
 	defer c.closeConn(co, false)
 	if err != nil {
-		return false, err
+		return true, err
 	}
 
 	err = co.UseDB(dbName)
 	c.currentDB = dbName
+
+	c.checkStatus(co)
 
 	return true, err
 }
