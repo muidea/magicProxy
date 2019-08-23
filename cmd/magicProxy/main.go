@@ -13,29 +13,21 @@ import (
 	"github.com/muidea/magicProxy/server"
 )
 
-var configFile *string = flag.String("config", "/etc/ks.yaml", "magicProxy config file")
-var version *bool = flag.Bool("v", false, "the version of magicProxy")
-
-var (
-	BuildDate    string
-	BuildVersion string
-)
+var configFile = "ks.yaml"
 
 func main() {
 	fmt.Print("magicProxy v1.0")
 	runtime.GOMAXPROCS(runtime.NumCPU())
+
+	flag.StringVar(&configFile, "config", "ks.yaml", "magicProxy config file")
 	flag.Parse()
-	fmt.Printf("Git commit:%s\n", BuildVersion)
-	fmt.Printf("Build time:%s\n", BuildDate)
-	if *version {
-		return
-	}
-	if len(*configFile) == 0 {
+
+	if len(configFile) == 0 {
 		fmt.Println("must use a config file")
 		return
 	}
 
-	cfg, err := config.ParseConfigFile(*configFile)
+	cfg, err := config.ParseConfigFile(configFile)
 	if err != nil {
 		fmt.Printf("parse config file error:%v\n", err.Error())
 		return
