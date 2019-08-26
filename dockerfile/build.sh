@@ -15,7 +15,7 @@ function buildImage()
 function tagImage()
 {
     echo "tag docker images..."
-    docker tag $1 registry.supos.ai/hdp/magicproxy
+    docker tag $1 registry.supos.ai/huangdp/magicproxy
     if [ $? -eq 0 ];then
         echo "docker tag success."
     else
@@ -43,7 +43,7 @@ cp $gopath/bin/magicProxy ./
 
 buildImage
 
-oldID=$(docker images|grep registry.supos.ai/hdp/magicproxy|awk '{print $3}')
+oldID=$(docker images|grep registry.supos.ai/huangdp/magicproxy|awk '{print $3}')
 imageID=$(tail -1 log.txt |awk '{print $3}')
 
 tagImage ${imageID}
