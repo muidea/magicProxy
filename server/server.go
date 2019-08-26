@@ -102,6 +102,9 @@ func (s *Server) newClientConn(co net.Conn) *ClientConn {
 	c.stmtID = 0
 	c.stmts = make(map[uint32]*Stmt)
 
+	c.bindConnectionFlag = false
+	c.bindConnection = nil
+
 	return c
 }
 

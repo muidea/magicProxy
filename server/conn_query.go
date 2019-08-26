@@ -33,6 +33,8 @@ func (c *ClientConn) handleQuery(sql string) (ret bool, err error) {
 			ret, err = c.handleCommit()
 		case mysql.TK_ID_ROLLBACK:
 			ret, err = c.handleRollback()
+		case mysql.TK_ID_SET:
+			ret, err = c.handleSet(sql)
 		default:
 			return false, nil
 		}

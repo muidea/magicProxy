@@ -33,6 +33,9 @@ type ClientConn struct {
 
 	txConnection *backend.BackendConn
 
+	bindConnectionFlag bool
+	bindConnection     *backend.BackendConn
+
 	user         string
 	connectionDB string
 	currentDB    string
@@ -380,6 +383,20 @@ func (c *ClientConn) getBackendConn() (co *backend.BackendConn, err error) {
 		return
 	}
 
+	if c.isBindConnection() {
+		if c.bindConnection == nil {
+			co, err = c.allocConn()
+			if err != nil {
+				return
+			}
+
+			c.bindConnection = co
+		}
+
+		co = c.bindConnection
+		return
+	}
+
 	co, err = c.allocConn()
 	return
 }
@@ -395,6 +412,10 @@ func (c *ClientConn) executeInConn(conn *backend.BackendConn, sql string, args [
 
 func (c *ClientConn) closeConn(conn *backend.BackendConn, rollback bool) {
 	if c.isInTransaction() {
+		return
+	}
+
+	if c.isBindConnection() {
 		return
 	}
 
