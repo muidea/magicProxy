@@ -17,6 +17,7 @@ func (c *ClientConn) handleSet(sql string) (ret bool, err error) {
 	c.onBindConnection()
 
 	err = c.executeSQL(sql)
+	ret = true
 
-	return true, err
+	return
 }

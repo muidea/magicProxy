@@ -15,6 +15,7 @@ func (c *ClientConn) handlePing() (ret bool, err error) {
 	}
 
 	err = co.Ping()
+	//c.status = co.Status()
 
 	c.checkStatus(co)
 

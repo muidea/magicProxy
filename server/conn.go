@@ -138,6 +138,11 @@ func (c *ClientConn) writeInitialHandshake() error {
 	//filter [00]
 	data = append(data, 0)
 
+	//auth_plugin_name[00]
+	// magic rua !
+	//data = append(data, []byte("mysql_native_password")...)
+	//data = append(data, 0)
+
 	return c.writePacket(data)
 }
 
@@ -236,7 +241,7 @@ func (c *ClientConn) Run() {
 			buf := make([]byte, size)
 			buf = buf[:runtime.Stack(buf, false)]
 
-			golog.Error("ClientConn", "Run", err.Error(), 0, "stack", string(buf))
+			golog.Error("ClientConn", "Run", err.Error(), c.connectionID, "stack", string(buf))
 		}
 
 		c.Close()
@@ -272,11 +277,11 @@ func (c *ClientConn) dispatch(data []byte) error {
 	data = data[1:]
 	sql := hack.String(data)
 
-	golog.Info("ClientConn", "dispatch", "executeSQL", 0, "cmd", cmd, "sql", sql, "Sequence", c.pkg.Sequence)
+	golog.Info("ClientConn", "dispatch", "executeSQL", c.connectionID, "cmd", cmd, "sql", sql, "Sequence", c.pkg.Sequence)
 
 	preHandle, preErr := c.preHandleSQL(cmd, sql)
 	if preErr != nil || preHandle {
-		golog.Info("ClientConn", "dispatch", "preHandleSQL", 0, "preHandle", preHandle)
+		golog.Info("ClientConn", "dispatch", "preHandleSQL", c.connectionID, "preHandle", preHandle)
 		return preErr
 	}
 
@@ -326,9 +331,13 @@ func (c *ClientConn) executeSQL(sql string) error {
 		return err
 	}
 
+	//c.status = co.Status()
+
 	if rs.Resultset != nil {
+		golog.Info("ClientConn", "executeSQL", "resultset", c.connectionID, "sql", sql)
 		err = c.writeResultset(c.status, rs.Resultset)
 	} else {
+		golog.Info("ClientConn", "executeSQL", "write ok", c.connectionID, "sql", sql)
 		err = c.writeOK(rs)
 	}
 
@@ -342,19 +351,19 @@ func (c *ClientConn) allocConn() (co *backend.BackendConn, err error) {
 	if bkNode == nil {
 		err = fmt.Errorf("nodefine backend node")
 
-		golog.Error("ClientConn", "GetBackendNode", err.Error(), 0)
+		golog.Error("ClientConn", "GetBackendNode", err.Error(), c.connectionID)
 		return
 	}
 	co, err = bkNode.GetConn()
 	if err != nil {
-		golog.Error("ClientConn", "GetConn", err.Error(), 0)
+		golog.Error("ClientConn", "GetConn", err.Error(), c.connectionID)
 		return
 	}
 
 	if err = co.UseDB(c.currentDB); err != nil {
 		sqlErr, ok := err.(*mysql.SqlError)
 		if ok {
-			if sqlErr.Code == mysql.ER_NO_DB_ERROR {
+			if sqlErr.Code == mysql.ER_NO_DB_ERROR || sqlErr.Code == mysql.ER_BAD_DB_ERROR {
 				createSQL := fmt.Sprintf("CREATE SCHEMA `%s` DEFAULT CHARACTER SET %s COLLATE %s", c.currentDB, mysql.DEFAULT_CHARSET, mysql.DEFAULT_COLLATION_NAME)
 				_, err = c.executeInConn(co, createSQL, nil)
 				if err == nil {
@@ -447,7 +456,7 @@ func (c *ClientConn) checkStatus(conn *backend.BackendConn) {
 	clientStatus := c.status
 	backendStatus := conn.Status()
 	if clientStatus != backendStatus {
-		golog.Error("ClientConn", "checkStatus", "mismatch status", 0, "ClientConn:", clientStatus, "BackendConn:", backendStatus)
+		golog.Error("ClientConn", "checkStatus", "mismatch status", c.connectionID, "ClientConn:", clientStatus, "BackendConn:", backendStatus)
 	}
 }
 

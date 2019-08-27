@@ -22,6 +22,8 @@ func (c *ClientConn) handleUseDB(dbName string) (ret bool, err error) {
 	err = co.UseDB(dbName)
 	c.currentDB = dbName
 
+	//c.status = co.Status()
+
 	c.checkStatus(co)
 
 	return true, err

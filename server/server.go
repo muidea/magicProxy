@@ -117,7 +117,7 @@ func (s *Server) onConn(c net.Conn) {
 			const size = 4096
 			buf := make([]byte, size)
 			buf = buf[:runtime.Stack(buf, false)] //获得当前goroutine的stacktrace
-			golog.Error("server", "onConn", "error", 0,
+			golog.Error("server", "onConn", "error", conn.connectionID,
 				"remoteAddr", c.RemoteAddr().String(),
 				"stack", string(buf),
 			)
@@ -127,13 +127,13 @@ func (s *Server) onConn(c net.Conn) {
 	}()
 
 	if err := conn.Handshake(); err != nil {
-		golog.Error("server", "onConn", err.Error(), 0)
+		golog.Error("server", "onConn", err.Error(), conn.connectionID)
 		conn.writeError(err)
 		conn.Close()
 		return
 	}
 
-	golog.Info("server", "onConn", "new connection", 0, "remote address", c.RemoteAddr().String(), "database", conn.currentDB)
+	golog.Info("server", "onConn", "new connection", conn.connectionID, "remote address", c.RemoteAddr().String(), "database", conn.currentDB)
 
 	conn.Run()
 }

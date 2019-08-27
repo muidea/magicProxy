@@ -37,6 +37,8 @@ func (c *ClientConn) handleBegin() (ret bool, err error) {
 		c.offInTransaction()
 	}
 
+	//c.status = co.Status()
+
 	c.checkStatus(co)
 
 	return
@@ -60,6 +62,8 @@ func (c *ClientConn) handleCommit() (ret bool, err error) {
 	c.offInTransaction()
 	c.txConnection = nil
 
+	//c.status = co.Status()
+
 	c.checkStatus(co)
 
 	return
@@ -82,6 +86,8 @@ func (c *ClientConn) handleRollback() (ret bool, err error) {
 
 	c.offInTransaction()
 	c.txConnection = nil
+
+	//c.status = co.Status()
 
 	c.checkStatus(co)
 

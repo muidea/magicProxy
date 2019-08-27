@@ -80,6 +80,7 @@ func (c *ClientConn) handleStmtPrepare(sql string) (bool, error) {
 
 	s.id = c.stmtID
 	c.stmtID++
+	//c.status = co.Status()
 
 	if err = c.writePrepare(s); err != nil {
 		return true, err
@@ -92,6 +93,7 @@ func (c *ClientConn) handleStmtPrepare(sql string) (bool, error) {
 	if err != nil {
 		return true, err
 	}
+	//c.status = co.Status()
 
 	c.checkStatus(co)
 
@@ -262,6 +264,7 @@ func (c *ClientConn) handlePrepareSelect(stmt *sqlparser.Select, sql string, arg
 		golog.Error("ClientConn", "handlePrepareSelect", err.Error(), c.connectionID)
 		return err
 	}
+	//c.status = co.Status()
 
 	status := c.status | rs.Status
 	if rs.Resultset != nil {
@@ -296,6 +299,7 @@ func (c *ClientConn) handlePrepareExec(stmt sqlparser.Statement, sql string, arg
 		golog.Error("ClientConn", "handlePrepareExec", err.Error(), c.connectionID)
 		return err
 	}
+	//c.status = co.Status()
 
 	status := c.status | rs.Status
 	if rs.Resultset != nil {
