@@ -352,8 +352,21 @@ func (c *ClientConn) allocConn() (co *backend.BackendConn, err error) {
 	}
 
 	if err = co.UseDB(c.currentDB); err != nil {
-		c.currentDB = ""
-		return
+		sqlErr, ok := err.(*mysql.SqlError)
+		if ok {
+			if sqlErr.Code == mysql.ER_NO_DB_ERROR {
+				createSQL := fmt.Sprintf("CREATE SCHEMA `%s` DEFAULT CHARACTER SET %s COLLATE %s", c.currentDB, mysql.DEFAULT_CHARSET, mysql.DEFAULT_COLLATION_NAME)
+				_, err = c.executeInConn(co, createSQL, nil)
+				if err == nil {
+					err = co.UseDB(c.currentDB)
+				}
+			}
+		}
+
+		if err != nil {
+			c.currentDB = ""
+			return
+		}
 	}
 
 	if err = co.SetCharset(c.charset, c.collation); err != nil {
